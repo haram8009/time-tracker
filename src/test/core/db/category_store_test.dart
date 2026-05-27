@@ -94,6 +94,38 @@ void main() {
     });
   });
 
+  group('CategoryStore – custom seed injection', () {
+    test('custom seedCategories replaces default presets', () async {
+      const custom = [
+        Category(name: '테스트A', colorHex: '#111111', isPreset: true),
+        Category(name: '테스트B', colorHex: '#222222', isPreset: true),
+      ];
+      final store = CategoryStore(seedCategories: custom);
+      final all = await store.fetchAll();
+      expect(all.length, 2);
+      expect(all.map((c) => c.name).toList(), ['테스트A', '테스트B']);
+    });
+
+    test('empty seedCategories seeds nothing', () async {
+      final store = CategoryStore(seedCategories: const []);
+      final all = await store.fetchAll();
+      expect(all, isEmpty);
+    });
+
+    test('auto-init: fetchAll works without explicit seedIfNeeded()', () async {
+      final store = CategoryStore();
+      final all = await store.fetchAll();
+      expect(all.length, 6);
+    });
+
+    test('auto-init: watchAll emits without explicit seedIfNeeded()', () async {
+      final store = CategoryStore();
+      final list = await store.watchAll().first;
+      expect(list.length, 6);
+      store.dispose();
+    });
+  });
+
   group('CategoryStore – CRUD', () {
     test('insert adds a new category and returns it with an id', () async {
       final store = CategoryStore();
