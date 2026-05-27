@@ -150,6 +150,79 @@ void main() {
       expect(list[1].startMinute, 600);
     });
 
+    test('mergeOrInsert – no adjacent blocks: plain insert', () async {
+      final store = TimeBlockStore();
+      final result = await store.mergeOrInsert(const TimeBlock(
+        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+      ));
+      expect(result.id, isNotNull);
+      final all = await store.fetchByDate('2026-05-27');
+      expect(all.length, 1);
+      expect(all.first.startMinute, 100);
+      expect(all.first.endMinute, 110);
+    });
+
+    test('mergeOrInsert – prev adjacent same category: extends prev', () async {
+      final store = TimeBlockStore();
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+      ));
+      await store.mergeOrInsert(const TimeBlock(
+        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+      ));
+      final all = await store.fetchByDate('2026-05-27');
+      expect(all.length, 1);
+      expect(all.first.startMinute, 80);
+      expect(all.first.endMinute, 110);
+    });
+
+    test('mergeOrInsert – next adjacent same category: extends next', () async {
+      final store = TimeBlockStore();
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 110, endMinute: 130, categoryId: 1,
+      ));
+      await store.mergeOrInsert(const TimeBlock(
+        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+      ));
+      final all = await store.fetchByDate('2026-05-27');
+      expect(all.length, 1);
+      expect(all.first.startMinute, 100);
+      expect(all.first.endMinute, 130);
+    });
+
+    test('mergeOrInsert – both adjacent same category: merges three into one', () async {
+      final store = TimeBlockStore();
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+      ));
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 110, endMinute: 130, categoryId: 1,
+      ));
+      await store.mergeOrInsert(const TimeBlock(
+        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+      ));
+      final all = await store.fetchByDate('2026-05-27');
+      expect(all.length, 1);
+      expect(all.first.startMinute, 80);
+      expect(all.first.endMinute, 130);
+    });
+
+    test('mergeOrInsert – adjacent but different category: no merge', () async {
+      final store = TimeBlockStore();
+      // Insert a second category
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('categories', {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
+
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+      ));
+      await store.mergeOrInsert(const TimeBlock(
+        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 2,
+      ));
+      final all = await store.fetchByDate('2026-05-27');
+      expect(all.length, 2);
+    });
+
     test('watchByDate emits current snapshot immediately', () async {
       final store = TimeBlockStore();
       await store.insert(
