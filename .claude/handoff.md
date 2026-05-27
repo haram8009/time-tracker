@@ -2,12 +2,14 @@
 **Date:** 2026-05-27  
 **Project dir:** `/Users/haram/dev/time-tracker/src`  
 **Platform:** Flutter (Dart), iOS + Android  
-**Next session focus:** GitHub 이슈 #2~#12 close → 히트맵 임계값 설정화
+**Next session focus:** 이슈 #18 구현 (낮은 우선순위) 또는 GitHub 이슈 목록 확인 후 신규 작업
 
 ---
 
 ## Suggested Skills
 - `/caveman` — **세션 시작 즉시 호출. 이 프로젝트의 기본 응답 스타일.**
+- `/code-review` — 각 이슈 구현 완료 후 diff 리뷰
+- `/verify` — 알림/UI 변경 후 실제 앱 동작 확인 시
 
 ---
 
@@ -19,7 +21,7 @@ PRD: `/Users/haram/dev/time-tracker/PRD.md`
 10분 단위 그리드 기반 시간 추적 앱. 하루 144칸 그리드에서 셀 탭/드래그로 카테고리 지정, 카메라롤 사진 자동 썸네일, 누적 데이터 분석.
 
 **패키지:** `sqflite`, `photo_manager`, `flutter_local_notifications`, `flutter_riverpod`, `shared_preferences`, `timezone`, `fl_chart`  
-**상태관리:** Riverpod (plain `StateNotifierProvider` / `StreamProvider` / `FutureProvider`)
+**상태관리:** Riverpod (`StateNotifierProvider` / `StreamProvider` / `FutureProvider`)
 
 ---
 
@@ -27,24 +29,95 @@ PRD: `/Users/haram/dev/time-tracker/PRD.md`
 
 ```
 flutter analyze   → 0 issues ✓
-flutter test      → 59 passed ✓
+flutter test      → 92 passed ✓
 ```
 
-**구현 완료: 이슈 #2~#12 전체 + 알림 백그라운드 재스케줄**
+**GitHub 이슈 #14~#17:** 구현 완료. 이슈 close 필요:
+```bash
+gh issue close 14 15 16 17
+```
 
-| 커밋 | 내용 |
-|---|---|
-| `6073a52` | feat: 알림 백그라운드 재스케줄 구현 (#9) |
-| `3e7ea54` | chore: macOS 플러그인 등록 업데이트 + handoff 갱신 |
-| `37c09de` | feat: 커스텀 카테고리 관리 UI — 추가/수정/삭제 + 색상 팔레트 |
-| `543a11d` | feat: 멀티셀 드래그 선택 구현 — Listener + NeverScrollablePhysics |
-
-**GitHub 이슈:** #2~#12 OPEN 상태 — 닫아야 함  
-*사용자가 직접 실행 필요 (Claude Code 권한 제한):*
+**GitHub 이슈 #2~#12:** 아직 OPEN. 사용자 직접 실행 필요:
 ```bash
 gh issue close 2 3 4 5 6 7 8 9 10 11 12
 ```
-*gh auth는 이미 완료 (haram8009 계정)*
+
+---
+
+## 이번 세션에서 한 일
+
+### 이슈 #14 — NotificationPort 인터페이스 추출 (resolves #14)
+- `lib/core/notifications/notification_port.dart` 신규 생성
+  - `abstract class NotificationPort { initialize(), cancelById(), scheduleAtTime() }`
+  - `class FlutterLocalNotificationsAdapter implements NotificationPort`
+  - `notificationPortProvider` Riverpod Provider
+- `notification_scheduler.dart` — 글로벌 `_plugin` 제거, 함수들이 `NotificationPort port` 파라미터 수신
+- `settings_service.dart` — `NotificationPort` 생성자 주입
+- `main.dart` — `FlutterLocalNotificationsAdapter` 직접 생성 후 `ProviderScope` override
+- `grid_screen.dart` — `ref.read(notificationPortProvider)` 로 port 전달
+- **테스트:** `test/core/notifications/notification_scheduler_test.dart` 추가 (FakeNotificationPort)
+
+### 이슈 #15 — PreferencesPort + SettingsService DI (resolves #15)
+- `lib/core/notifications/notification_settings.dart` 신규 생성 — `NotificationSettings` 모델 분리
+- `lib/core/services/preferences_port.dart` 신규 생성
+  - `abstract class PreferencesPort { getBool/getInt/setBool/setInt }`
+  - `class SharedPrefsAdapter implements PreferencesPort`
+  - `sharedPrefsAdapterProvider` (ProviderScope에서 override 필요)
+- `settings_service.dart` — `PreferencesPort` + `NotificationPort` 생성자 주입, `_load()` 동기화
+- `notification_scheduler.dart` → `notification_settings.dart` import로 순환 의존성 제거
+- `main.dart` — `SharedPrefsAdapter` 초기화 후 ProviderScope override
+- **테스트:** `test/core/services/settings_service_test.dart` 추가 (FakePrefs + FakeNotifs)
+
+### 이슈 #16 — AnalyticsViewModel 추출 + 히트맵 임계값 설정화 (resolves #16)
+- `lib/features/analytics/analytics_view_model.dart` 신규 생성
+  - `enum AnalyticsPeriod { day, week, month, heatmap }`
+  - `AnalyticsViewModel(PreferencesPort)` — heatmapThreshold 상태 관리
+  - `static dateRangeFor(period)`, `static labelFor(period)` 순수 메서드
+  - `analyticsViewModelProvider`
+- `analytics_screen.dart` — VM 사용, `_Period` enum 제거, 하드코딩된 `< 5` → VM의 threshold
+- `settings_screen.dart` — 히트맵 최소 기록 수 ±1 조절 UI 추가
+- **테스트:** `test/features/analytics/analytics_view_model_test.dart` 추가
+
+### 이슈 #17 — GridScreenViewModel.saveBlock + 알림 이관 (resolves #17)
+- `grid_screen_view_model.dart` — `saveBlock(TimeBlock)` 메서드 추가
+  - `store.insert(block)` 후 오늘 날짜면 `scheduleSmartNotification` 호출
+  - `NotificationPort`는 `_ref.read(notificationPortProvider)`로 접근
+- `category_bottom_sheet.dart` — `timeBlockStoreProvider.insert` → `gridScreenViewModelProvider.notifier.saveBlock`
+- `grid_screen.dart` — `scheduleSmartNotification` 직접 호출 제거, 관련 import 제거
+- **테스트:** `test/features/grid/grid_screen_view_model_test.dart` 추가 (sqflite_ffi + FakeCategoryStore)
+
+---
+
+## 다음 세션 작업
+
+### 이슈 #18 (낮은 우선순위)
+**CategoryStore 프리셋 주입 + seedIfNeeded 자동화**  
+https://github.com/haram8009/time-tracker/issues/18
+
+핵심 변경:
+- `CategoryStore({List<Category>? seedCategories})` 생성자 파라미터 추가
+- 첫 DB 접근 전 내부에서 자동 `seedIfNeeded()` 실행 (Completer/lazy init)
+- `GridScreenViewModel._init()`에서 `categoryStore.seedIfNeeded()` 호출 제거
+- `category_store_test.dart` — 커스텀 시드 주입 테스트 추가
+
+독립 실행 가능. 의존성 없음.
+
+---
+
+## 커밋 규칙 (이슈별)
+
+각 이슈 완료 시:
+```
+refactor: <설명> (resolves #<이슈번호>)
+```
+
+커밋 전 필수:
+```bash
+flutter analyze   # 0 issues
+flutter test      # all pass
+```
+
+브랜치: 각 이슈마다 `issue-<번호>-<짧은설명>` 브랜치 생성 권장.
 
 ---
 
@@ -55,110 +128,80 @@ lib/
   core/
     utils/time_utils.dart
     db/
-      database_helper.dart
-      time_block_store.dart      — fetchByDate, fetchByDateRange, watchByDate
-      category_store.dart        — CRUD 완료 (insert/update/delete/watchAll)
-    models/                      — TimeBlock, Category, PhotoAsset, CellState
+      database_helper.dart          — setDatabaseForTesting/resetForTesting 지원
+      time_block_store.dart         — fetchByDate, watchByDate, insert/update/delete
+      category_store.dart           — seedIfNeeded, fetchAll, CRUD (리팩터 대상 #18)
+    models/                         — TimeBlock, Category, PhotoAsset, CellState
     services/
-      photo_library_service.dart
-      settings_service.dart      — NotificationSettings (loadFromPrefs 포함), SettingsService
+      photo_library_service.dart    — PhotoDataSource 인터페이스 주입 패턴
+      real_photo_data_source.dart   — 어댑터 패턴 선례
+      settings_service.dart         — SettingsService(PreferencesPort, NotificationPort) ✓
+      preferences_port.dart         — PreferencesPort + SharedPrefsAdapter ✓ (NEW)
     notifications/
-      notification_scheduler.dart — initNotifications(), scheduleSmartNotification(), scheduleWeeklyFallbackNotifications()
-      notification_logic.dart     — 순수 계산 로직 (fallbackFireMinute, inSleepWindow) ← 신규
+      notification_port.dart        — NotificationPort + FlutterLocalNotificationsAdapter ✓ (NEW)
+      notification_scheduler.dart   — port 파라미터 수신 ✓
+      notification_settings.dart    — NotificationSettings 모델 ✓ (NEW, 분리됨)
+      notification_logic.dart       — 순수 계산 로직 (변경 불필요)
   features/
     grid/
-      grid_screen_view_model.dart — GridScreenState + StateNotifier
-      grid_view_model.dart        — compute() 순수 Dart
-      grid_screen.dart            — Listener 드래그 + NeverScrollablePhysics ✓
-      category_bottom_sheet.dart
-      edit_block_bottom_sheet.dart
-      drag_selection_controller.dart — onDragStart/Update/End/Cancel ✓
+      grid_screen_view_model.dart   — saveBlock 구현 완료 ✓
+      grid_view_model.dart          — 순수 Dart (변경 불필요)
+      grid_screen.dart              — 알림 직접 호출 제거 ✓
+      category_bottom_sheet.dart    — vm.saveBlock 호출 ✓
+      drag_selection_controller.dart
+      edit_block_bottom_sheet.dart  — store.update/delete 직접 (미변경)
       widgets/grid_cell.dart
     analytics/
-      analytics_engine.dart       — computeStats, computeHeatmap, daily/weekly/monthly
-      analytics_screen.dart       — 일/주/월/히트맵 탭 + PieChart
+      analytics_engine.dart         — 순수 계산 (변경 불필요)
+      analytics_view_model.dart     — AnalyticsViewModel ✓ (NEW)
+      analytics_screen.dart         — VM 사용, 렌더 전용 ✓
     settings/
-      settings_screen.dart        — 알림 on/off + 취침시간 + 카테고리 관리 ✓
-  main.dart                       — ProviderScope + _RootShell + 시작 시 폴백 알림 예약
+      settings_screen.dart          — 히트맵 임계값 UI 추가 ✓
+  main.dart                         — SharedPrefsAdapter + NotificationPort 초기화 ✓
 test/
   core/db/category_store_test.dart
   core/db/time_block_store_test.dart
-  core/notifications/notification_logic_test.dart  — 9 tests ← 신규
+  core/notifications/notification_logic_test.dart
+  core/notifications/notification_scheduler_test.dart  ← NEW
+  core/services/photo_library_service_test.dart
+  core/services/settings_service_test.dart             ← NEW
   features/grid/drag_selection_controller_test.dart
-  features/grid/grid_view_model_test.dart         — 10 tests
-  features/analytics/analytics_engine_test.dart  — 15 tests
+  features/grid/grid_view_model_test.dart
+  features/grid/grid_screen_view_model_test.dart       ← NEW (sqflite_ffi)
+  features/analytics/analytics_engine_test.dart
+  features/analytics/analytics_view_model_test.dart   ← NEW
   widget_test.dart
 ```
 
 ---
 
-## 이번 세션 구현 내용
+## 아키텍처 패턴 참고
 
-### 1. iOS 빌드 검증
+**포트/어댑터 패턴 (일관된 패턴):**
+- `PhotoDataSource` / `RealPhotoDataSource` — 선례
+- `NotificationPort` / `FlutterLocalNotificationsAdapter` — 완료 #14
+- `PreferencesPort` / `SharedPrefsAdapter` — 완료 #15
 
-- `flutter build ios --debug --no-codesign` → 성공 (58.6s)
-- iPhone 17 Pro 시뮬레이터 실행 + 그리드 화면 렌더링 정상 확인
-
-### 2. 알림 백그라운드 재스케줄 (`notification_scheduler.dart`, `notification_logic.dart`)
-
-**문제:** 기존엔 `GridScreen` 렌더 시에만 알림 예약 → 앱 미실행 날은 알림 없음
-
-**해결:** 앱 시작 시 앞으로 7일치 폴백 알림 선예약
-
-**알림 흐름 (신규):**
-```
-앱 시작
-  → initNotifications()
-  → NotificationSettings.loadFromPrefs()
-  → scheduleWeeklyFallbackNotifications()   ← 신규: ID 100~106, 취침 2시간 전 고정
-
-앱 열린 날 GridScreen data 로드
-  → scheduleSmartNotification()             ← 기존: ID 1, 마지막 블록 +3시간
-
-설정 변경 (알림 on/off, 취침시간)
-  → scheduleWeeklyFallbackNotifications()   ← 신규: 즉시 재스케줄
+**main.dart 부트스트랩 패턴:**
+```dart
+final rawPrefs = await SharedPreferences.getInstance();
+final prefsAdapter = SharedPrefsAdapter(rawPrefs);
+final port = FlutterLocalNotificationsAdapter();
+await port.initialize();
+runApp(ProviderScope(
+  overrides: [
+    sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
+    notificationPortProvider.overrideWithValue(port),
+  ],
+  child: const TimeTrackerApp(),
+));
 ```
 
-**폴백 시각:** `sleepStartMinute - 120` (취침 23:00 → 폴백 21:00)  
-자정 넘김 처리: `target < 0 ? target + 1440 : target`
-
-**ID 체계:**
-| 알림 | ID | 발화 기준 |
-|---|---|---|
-| 스마트 (오늘) | 1 | 마지막 블록 endMinute + 180분 |
-| 폴백 day+1 | 100 | 취침 시작 - 120분 (고정) |
-| 폴백 day+2 | 101 | 동일 |
-| … | … | … |
-| 폴백 day+7 | 106 | 동일 |
-
-**변경 파일:**
-- `notification_logic.dart` (신규) — `NotificationLogic.fallbackFireMinute`, `NotificationLogic.inSleepWindow`
-- `notification_scheduler.dart` — `scheduleWeeklyFallbackNotifications()` 추가, 기존 `_inSleepWindow/_fallbackFireMinute` → `NotificationLogic` 위임
-- `settings_service.dart` — `NotificationSettings.loadFromPrefs()` 추가, `setEnabled/setSleepStart/setSleepEnd`에 재스케줄 호출 추가
-- `main.dart` — 시작 시 `loadFromPrefs()` + `scheduleWeeklyFallbackNotifications()` 호출
-
----
-
-## 아키텍처 요약
-
-**네비게이션:** `_RootShell` → `IndexedStack` + `NavigationBar` (기록/분석 2탭)  
-**설정 진입:** GridScreen AppBar 우측 settings 아이콘 → push `SettingsScreen`
-
-**드래그 흐름:**
-1. `Listener.onPointerDown` → 시작 위치 저장
-2. `Listener.onPointerMove` (8px 초과) → `_isDragging = true`, `DragSelectionController.onDragStart()`
-3. 이후 move → `onDragUpdate()`, 셀 하이라이트 갱신
-4. `Listener.onPointerUp` → `onDragEnd()` → 카테고리 바텀시트
-5. 바텀시트 닫힘 → `clearSelection()`
-
----
-
-## 남은 작업
-
-| 우선순위 | 항목 | 상태 |
-|---|---|---|
-| 높음 | GitHub 이슈 #2~#12 close | 사용자 직접 실행 필요 (`gh auth` 완료) |
-| 낮음 | 히트맵 임계값 조정 가능하게 | 현재 5개 블록 하드코딩 (`analytics_engine.dart`) |
+**테스트 선례:**
+- `FakeNotificationPort` — `test/core/notifications/notification_scheduler_test.dart`
+- `FakePrefs` + `FakeNotifs` — `test/core/services/settings_service_test.dart`
+- sqflite_ffi + `FakeCategoryStore` — `test/features/grid/grid_screen_view_model_test.dart`
+- `StateNotifier` 테스트: `grid_view_model_test.dart`
 
 ---
 
@@ -168,4 +211,5 @@ test/
 cd /Users/haram/dev/time-tracker/src
 flutter analyze && flutter test
 git log --oneline -10
+gh issue list
 ```
