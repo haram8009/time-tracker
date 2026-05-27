@@ -4,12 +4,7 @@ import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
 import '../../core/models/time_block.dart';
-
-String _formatMinute(int minute) {
-  final h = minute ~/ 60;
-  final m = minute % 60;
-  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-}
+import '../../core/utils/time_utils.dart';
 
 Future<void> showCategoryBottomSheet(
   BuildContext context,
@@ -46,11 +41,6 @@ class _CategoryBottomSheet extends StatelessWidget {
     required this.endMinute,
   });
 
-  Color _hexToColor(String hex) {
-    final h = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$h', radix: 16));
-  }
-
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
@@ -74,7 +64,7 @@ class _CategoryBottomSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${_formatMinute(startMinute)} – ${_formatMinute(endMinute)}',
+              '${formatMinute(startMinute)} – ${formatMinute(endMinute)}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
@@ -86,6 +76,7 @@ class _CategoryBottomSheet extends StatelessWidget {
             categoriesAsync.when(
               data: (categories) => _CategoryList(
                 categories: categories,
+                hexToColor: hexToColor,
                 onSelect: (category) async {
                   await ref.read(timeBlockStoreProvider).insert(
                         TimeBlock(
@@ -97,7 +88,6 @@ class _CategoryBottomSheet extends StatelessWidget {
                       );
                   if (context.mounted) Navigator.of(context).pop();
                 },
-                hexToColor: _hexToColor,
               ),
               loading: () => const Center(
                 child: Padding(

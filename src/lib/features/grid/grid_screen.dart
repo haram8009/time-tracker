@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
-import '../../core/db/database_helper.dart';
 import '../../core/db/time_block_store.dart';
-import '../../core/models/category.dart';
-import '../../core/models/time_block.dart' as db;
 import '../../core/services/photo_library_service.dart';
+import '../../core/utils/time_utils.dart';
 import 'category_bottom_sheet.dart';
 import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
+import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
 import 'widgets/grid_cell.dart';
-
-String _dateKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 class GridScreen extends ConsumerStatefulWidget {
   const GridScreen({super.key});
@@ -25,8 +21,6 @@ class GridScreen extends ConsumerStatefulWidget {
 class _GridScreenState extends ConsumerState<GridScreen> {
   late final ScrollController _scrollController;
   late final DragSelectionController _drag;
-  DateTime _selectedDate = DateTime.now();
-  bool _dbReady = false;
 
   @override
   void initState() {
@@ -34,75 +28,22 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     _scrollController = ScrollController();
     _drag = DragSelectionController();
     _drag.addListener(() => setState(() {}));
-    _initDb();
-  }
-
-  Future<void> _initDb() async {
-    await DatabaseHelper.instance.database;
-    await ref.read(categoryStoreProvider).seedIfNeeded();
-    if (mounted) {
-      setState(() => _dbReady = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
-    }
   }
 
   void _scrollToNow() {
+    if (!_scrollController.hasClients) return;
     final now = DateTime.now();
     final idx = GridViewModel.minuteToIndex(now.hour * 60 + now.minute);
     const cellH = 32.0;
     final screenH = MediaQuery.of(context).size.height;
     final topPad = MediaQuery.of(context).padding.top + kToolbarHeight;
-    final offset = (idx * cellH - (screenH - topPad) / 2).clamp(0.0, double.infinity);
+    final offset =
+        (idx * cellH - (screenH - topPad) / 2).clamp(0.0, double.infinity);
     _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOut,
     );
-  }
-
-  String get _dateLabel {
-    const days = ['월', '화', '수', '목', '금', '토', '일'];
-    final d = _selectedDate;
-    return '${d.year}년 ${d.month}월 ${d.day}일 (${days[d.weekday - 1]})';
-  }
-
-  Color _hexToColor(String hex) {
-    final h = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$h', radix: 16));
-  }
-
-  db.TimeBlock? _blockAtIndex(int index, List<db.TimeBlock> blocks) {
-    final cellStart = GridViewModel.indexToMinute(index);
-    final cellEnd = cellStart + 10;
-    for (final b in blocks) {
-      if (b.startMinute < cellEnd && b.endMinute > cellStart) return b;
-    }
-    return null;
-  }
-
-  void _onCellTap(
-    int index,
-    List<db.TimeBlock> dbBlocks,
-    List<Category> categories,
-  ) {
-    final existing = _blockAtIndex(index, dbBlocks);
-    if (existing != null) {
-      _drag.clearSelection();
-      showEditBlockBottomSheet(context, ref, existing, categories);
-    } else {
-      _drag.onDragStart(index);
-      _drag.onDragEnd();
-      final sel = _drag.selection;
-      if (sel != null) {
-        showCategoryBottomSheet(
-          context,
-          ref,
-          _dateKey(_selectedDate),
-          sel.startMinute,
-          sel.endMinute,
-        ).then((_) => _drag.clearSelection());
-      }
-    }
   }
 
   @override
@@ -114,12 +55,28 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_dbReady) {
+    ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
+      if (prev?.dbReady == false && next.dbReady == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
+      }
+    });
+
+    final vmState = ref.watch(gridScreenViewModelProvider);
+    final vm = ref.read(gridScreenViewModelProvider.notifier);
+
+    if (!vmState.dbReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final blocksAsync = ref.watch(timeBlocksStreamProvider(_dateKey(_selectedDate)));
+    final selectedDate = vmState.selectedDate;
+    final blocksAsync =
+        ref.watch(timeBlocksStreamProvider(dateKey(selectedDate)));
     final categoriesAsync = ref.watch(categoriesStreamProvider);
+
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    final d = selectedDate;
+    final dateLabel =
+        '${d.year}년 ${d.month}월 ${d.day}일 (${days[d.weekday - 1]})';
 
     return Scaffold(
       appBar: AppBar(
@@ -127,23 +84,23 @@ class _GridScreenState extends ConsumerState<GridScreen> {
         leading: IconButton(
           icon: const Icon(Icons.chevron_left),
           tooltip: '이전 날',
-          onPressed: () => setState(() {
-            _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+          onPressed: () {
+            vm.goToPreviousDay();
             _drag.clearSelection();
-          }),
+          },
         ),
         title: Text(
-          _dateLabel,
+          dateLabel,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.chevron_right),
             tooltip: '다음 날',
-            onPressed: () => setState(() {
-              _selectedDate = _selectedDate.add(const Duration(days: 1));
+            onPressed: () {
+              vm.goToNextDay();
               _drag.clearSelection();
-            }),
+            },
           ),
         ],
         centerTitle: true,
@@ -151,19 +108,10 @@ class _GridScreenState extends ConsumerState<GridScreen> {
       body: blocksAsync.when(
         data: (dbBlocks) => categoriesAsync.when(
           data: (categories) {
-            final photosAsync = ref.watch(photosForDateProvider(_selectedDate));
-            final colorMap = {for (final c in categories) c.id!: _hexToColor(c.colorHex)};
-            final vmBlocks = dbBlocks
-                .where((b) => colorMap.containsKey(b.categoryId))
-                .map((b) => TimeBlock(
-                      startMinute: b.startMinute,
-                      endMinute: b.endMinute,
-                      categoryColor: colorMap[b.categoryId]!,
-                    ))
-                .toList();
-
+            final photosAsync = ref.watch(photosForDateProvider(selectedDate));
             final cells = GridViewModel.compute(
-              blocks: vmBlocks,
+              blocks: dbBlocks,
+              categories: categories,
               photos: photosAsync.valueOrNull ?? const [],
               selectedIndices: _drag.selectedIndices,
             );
@@ -176,7 +124,27 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                 key: ValueKey(index),
                 index: index,
                 state: cells[index],
-                onTap: () => _onCellTap(index, dbBlocks, categories),
+                onTap: () {
+                  final existing = vm.blockAtIndex(index, dbBlocks);
+                  if (existing != null) {
+                    _drag.clearSelection();
+                    showEditBlockBottomSheet(
+                        context, ref, existing, categories);
+                  } else {
+                    _drag.onDragStart(index);
+                    _drag.onDragEnd();
+                    final sel = _drag.selection;
+                    if (sel != null) {
+                      showCategoryBottomSheet(
+                        context,
+                        ref,
+                        dateKey(selectedDate),
+                        sel.startMinute,
+                        sel.endMinute,
+                      ).then((_) => _drag.clearSelection());
+                    }
+                  }
+                },
               ),
             );
           },

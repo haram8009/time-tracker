@@ -1,25 +1,22 @@
 import 'dart:ui';
+import '../../core/models/category.dart';
 import '../../core/models/cell_state.dart';
 import '../../core/models/photo_asset.dart';
-
-class TimeBlock {
-  final int startMinute;
-  final int endMinute;
-  final Color categoryColor;
-
-  const TimeBlock({
-    required this.startMinute,
-    required this.endMinute,
-    required this.categoryColor,
-  });
-}
+import '../../core/models/time_block.dart';
+import '../../core/utils/time_utils.dart';
 
 class GridViewModel {
   static List<CellState> compute({
     required List<TimeBlock> blocks,
+    required List<Category> categories,
     required List<PhotoAsset> photos,
     required Set<int> selectedIndices,
   }) {
+    final colorMap = <int, Color>{
+      for (final c in categories)
+        if (c.id != null) c.id!: hexToColor(c.colorHex),
+    };
+
     final thumbnailMap = <int, List<dynamic>>{};
     for (final photo in photos) {
       final idx = minuteToIndex(photo.takenMinute);
@@ -38,7 +35,7 @@ class GridViewModel {
 
       for (final block in blocks) {
         if (block.startMinute < cellEnd && block.endMinute > cellStart) {
-          color = block.categoryColor;
+          color = colorMap[block.categoryId];
           break;
         }
       }

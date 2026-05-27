@@ -3,12 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
 import '../../core/models/time_block.dart';
-
-String _fmt(int minute) {
-  final h = minute ~/ 60;
-  final m = minute % 60;
-  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-}
+import '../../core/utils/time_utils.dart';
 
 Future<void> showEditBlockBottomSheet(
   BuildContext context,
@@ -48,11 +43,6 @@ class _EditBlockBottomSheet extends StatefulWidget {
 class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
   bool _showCategoryPicker = false;
 
-  Color _hexToColor(String hex) {
-    final h = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$h', radix: 16));
-  }
-
   Category? get _currentCategory {
     try {
       return widget.categories.firstWhere((c) => c.id == widget.block.categoryId);
@@ -84,7 +74,7 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
             ),
             const SizedBox(height: 12),
             Text(
-              '${_fmt(widget.block.startMinute)} – ${_fmt(widget.block.endMinute)}',
+              '${formatMinute(widget.block.startMinute)} – ${formatMinute(widget.block.endMinute)}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             if (cat != null) ...[
@@ -95,7 +85,7 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: _hexToColor(cat.colorHex),
+                      color: hexToColor(cat.colorHex),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -121,7 +111,7 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
                 spacing: 8,
                 runSpacing: 8,
                 children: widget.categories.map((c) {
-                  final color = _hexToColor(c.colorHex);
+                  final color = hexToColor(c.colorHex);
                   return InkWell(
                     onTap: () async {
                       await widget.ref.read(timeBlockStoreProvider).update(
