@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/core/notifications/notification_port.dart';
-import 'package:time_tracker/core/notifications/notification_settings.dart';
 import 'package:time_tracker/core/services/preferences_port.dart';
 import 'package:time_tracker/core/services/settings_service.dart';
 
