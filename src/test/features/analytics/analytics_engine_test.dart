@@ -99,6 +99,38 @@ void main() {
     });
   });
 
+  group('computeHeatmap', () {
+    test('빈 입력 → 7×24 전부 0', () {
+      final m = AnalyticsEngine.computeHeatmap(blocks: []);
+      expect(m.length, 7);
+      expect(m.every((row) => row.length == 24), isTrue);
+      expect(m.every((row) => row.every((v) => v == 0)), isTrue);
+    });
+
+    test('월요일 블록 → 요일 인덱스 0', () {
+      // 2026-05-25 = 월요일
+      final b = TimeBlock(
+        date: '2026-05-25',
+        startMinute: 60,
+        endMinute: 120,
+        categoryId: 1,
+      );
+      final m = AnalyticsEngine.computeHeatmap(blocks: [b]);
+      expect(m[0][1], 1); // 월요일, 01시
+      expect(m[0][2], 0); // endMinute=120 → hour 1 only (0..119)
+      expect(m[1][1], 0); // 화요일 아님
+    });
+
+    test('여러 날 누적', () {
+      final blocks = [
+        TimeBlock(date: '2026-05-25', startMinute: 60, endMinute: 120, categoryId: 1),
+        TimeBlock(date: '2026-05-25', startMinute: 60, endMinute: 120, categoryId: 1),
+      ];
+      final m = AnalyticsEngine.computeHeatmap(blocks: blocks);
+      expect(m[0][1], 2);
+    });
+  });
+
   group('named constructors', () {
     test('computeDailyStats', () {
       final stats = AnalyticsEngine.computeDailyStats(
