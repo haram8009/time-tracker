@@ -4,54 +4,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../models/photo_asset.dart';
+import 'real_photo_data_source.dart';
+
+typedef ThumbnailLoader = Future<Uint8List?> Function(ThumbnailSize size);
+
+class RawPhotoInfo {
+  final String id;
+  final DateTime takenAt;
+  final ThumbnailLoader loadThumb;
+
+  const RawPhotoInfo({
+    required this.id,
+    required this.takenAt,
+    required this.loadThumb,
+  });
+}
+
+abstract class PhotoDataSource {
+  Future<PermissionState> requestPermission();
+  Future<List<RawPhotoInfo>> photosForDate(DateTime date);
+}
 
 class PhotoLibraryService {
+  final PhotoDataSource _src;
   final Map<String, Uint8List> _cache = {};
 
-  Future<PermissionState> requestPermission() =>
-      PhotoManager.requestPermissionExtend();
+  PhotoLibraryService(this._src);
 
   Future<List<PhotoAsset>> fetchForDate(DateTime date) async {
-    final ps = await requestPermission();
+    final ps = await _src.requestPermission();
     if (!ps.hasAccess) return [];
 
-    final dayStart = DateTime(date.year, date.month, date.day);
-    final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
-
-    final filterOption = FilterOptionGroup(
-      createTimeCond: DateTimeCond(min: dayStart, max: dayEnd),
-      orders: [
-        const OrderOption(type: OrderOptionType.createDate, asc: true),
-      ],
-    );
-
-    final paths = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
-      onlyAll: true,
-      filterOption: filterOption,
-    );
-
-    if (paths.isEmpty) return [];
-
-    final count = await paths.first.assetCountAsync;
-    if (count == 0) return [];
-
-    final assets = await paths.first.getAssetListRange(
-      start: 0,
-      end: count.clamp(0, 200),
-    );
-
+    final rawPhotos = await _src.photosForDate(date);
     final result = <PhotoAsset>[];
-    for (final asset in assets) {
-      final takenAt = asset.createDateTime;
-      final minute = ((takenAt.hour * 60 + takenAt.minute) ~/ 10) * 10;
+
+    for (final raw in rawPhotos) {
+      final minute =
+          ((raw.takenAt.hour * 60 + raw.takenAt.minute) ~/ 10) * 10;
 
       Uint8List? bytes;
-      if (_cache.containsKey(asset.id)) {
-        bytes = _cache[asset.id];
+      if (_cache.containsKey(raw.id)) {
+        bytes = _cache[raw.id];
       } else {
-        bytes = await asset.thumbnailDataWithSize(const ThumbnailSize(64, 64));
-        if (bytes != null) _cache[asset.id] = bytes;
+        bytes = await raw.loadThumb(const ThumbnailSize(64, 64));
+        if (bytes != null) _cache[raw.id] = bytes;
       }
 
       if (bytes != null) {
@@ -65,8 +61,12 @@ class PhotoLibraryService {
   void clearCache() => _cache.clear();
 }
 
+final photoDataSourceProvider = Provider<PhotoDataSource>(
+  (ref) => RealPhotoDataSource(),
+);
+
 final photoLibraryServiceProvider = Provider<PhotoLibraryService>(
-  (ref) => PhotoLibraryService(),
+  (ref) => PhotoLibraryService(ref.watch(photoDataSourceProvider)),
 );
 
 final photosForDateProvider =
