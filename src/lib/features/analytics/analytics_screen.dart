@@ -5,6 +5,7 @@ import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/utils/time_utils.dart';
 import 'analytics_engine.dart';
+import 'analytics_view_model.dart';
 
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
@@ -18,10 +19,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
   late final TabController _tab;
   int _touchedIndex = -1;
 
+  static const _periods = [
+    AnalyticsPeriod.day,
+    AnalyticsPeriod.week,
+    AnalyticsPeriod.month,
+    AnalyticsPeriod.heatmap,
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: _periods.length, vsync: this);
     _tab.addListener(() => setState(() => _touchedIndex = -1));
   }
 
@@ -46,17 +54,17 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         controller: _tab,
         children: [
           _PeriodView(
-            period: _Period.day,
+            period: AnalyticsPeriod.day,
             touchedIndex: _touchedIndex,
             onTouch: (i) => setState(() => _touchedIndex = i),
           ),
           _PeriodView(
-            period: _Period.week,
+            period: AnalyticsPeriod.week,
             touchedIndex: _touchedIndex,
             onTouch: (i) => setState(() => _touchedIndex = i),
           ),
           _PeriodView(
-            period: _Period.month,
+            period: AnalyticsPeriod.month,
             touchedIndex: _touchedIndex,
             onTouch: (i) => setState(() => _touchedIndex = i),
           ),
@@ -67,10 +75,8 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
   }
 }
 
-enum _Period { day, week, month }
-
 class _PeriodView extends ConsumerWidget {
-  final _Period period;
+  final AnalyticsPeriod period;
   final int touchedIndex;
   final ValueChanged<int> onTouch;
 
@@ -80,35 +86,9 @@ class _PeriodView extends ConsumerWidget {
     required this.onTouch,
   });
 
-  (String, String) _dateRange() {
-    final now = DateTime.now();
-    switch (period) {
-      case _Period.day:
-        final d = dateKey(now);
-        return (d, d);
-      case _Period.week:
-        final mon = now.subtract(Duration(days: now.weekday - 1));
-        return (dateKey(mon), dateKey(now));
-      case _Period.month:
-        final first = DateTime(now.year, now.month, 1);
-        return (dateKey(first), dateKey(now));
-    }
-  }
-
-  String _periodLabel() {
-    switch (period) {
-      case _Period.day:
-        return '오늘';
-      case _Period.week:
-        return '이번 주';
-      case _Period.month:
-        return '이번 달';
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = _dateRange();
+    final range = AnalyticsViewModel.dateRangeFor(period);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesStreamProvider);
 
@@ -121,7 +101,7 @@ class _PeriodView extends ConsumerWidget {
           if (stats.isEmpty) {
             return Center(
               child: Text(
-                '${_periodLabel()} 기록이 없어요.',
+                '${AnalyticsViewModel.labelFor(period)} 기록이 없어요.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             );
@@ -142,8 +122,7 @@ class _PeriodView extends ConsumerWidget {
                           onTouch(-1);
                           return;
                         }
-                        onTouch(
-                            response.touchedSection!.touchedSectionIndex);
+                        onTouch(response.touchedSection!.touchedSectionIndex);
                       },
                     ),
                     sections: List.generate(stats.length, (i) {
@@ -208,28 +187,26 @@ class _HeatmapView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    final from = now.subtract(const Duration(days: 13));
-    final range = (dateKey(from), dateKey(now));
+    final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
+    final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
 
     return blocksAsync.when(
       data: (blocks) {
-        if (blocks.length < 5) {
-          return const Center(
+        if (blocks.length < threshold) {
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Text(
-                '히트맵을 표시하려면\n최소 2주치 데이터가 필요해요.',
+                '히트맵을 표시하려면\n최소 $threshold개의 기록이 필요해요.',
                 textAlign: TextAlign.center,
               ),
             ),
           );
         }
         final matrix = AnalyticsEngine.computeHeatmap(blocks: blocks);
-        final maxVal = matrix
-            .expand((row) => row)
-            .fold(0, (a, b) => a > b ? a : b);
+        final maxVal =
+            matrix.expand((row) => row).fold(0, (a, b) => a > b ? a : b);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -265,8 +242,7 @@ class _HeatmapView extends ConsumerWidget {
                     ),
                     ...List.generate(24, (hour) {
                       final val = matrix[day][hour];
-                      final intensity =
-                          maxVal == 0 ? 0.0 : val / maxVal;
+                      final intensity = maxVal == 0 ? 0.0 : val / maxVal;
                       return Container(
                         width: 14,
                         height: 14,

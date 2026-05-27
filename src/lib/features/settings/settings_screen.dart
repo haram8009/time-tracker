@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/models/category.dart';
 import '../../core/services/settings_service.dart';
+import '../analytics/analytics_view_model.dart';
 
 const _kColorOptions = [
   '#EF5350',
@@ -33,6 +34,9 @@ class SettingsScreen extends ConsumerWidget {
     final svc = ref.read(settingsServiceProvider.notifier);
     final categoriesAsync = ref.watch(categoriesStreamProvider);
 
+    final analytics = ref.read(analyticsViewModelProvider.notifier);
+    final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -58,6 +62,38 @@ class SettingsScreen extends ConsumerWidget {
             minuteFromMidnight: settings.sleepEndMinute,
             onChanged: (m) => svc.setSleepEnd(m),
             enabled: settings.enabled,
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '분석',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          ListTile(
+            title: const Text('히트맵 최소 기록 수'),
+            subtitle: Text('$threshold개 미만이면 히트맵 대신 안내 문구 표시'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: threshold > 1
+                      ? () => analytics.setHeatmapThreshold(threshold - 1)
+                      : null,
+                ),
+                Text('$threshold', style: const TextStyle(fontSize: 16)),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: threshold < 30
+                      ? () => analytics.setHeatmapThreshold(threshold + 1)
+                      : null,
+                ),
+              ],
+            ),
           ),
           const Divider(),
           Padding(
