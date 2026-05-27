@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
-import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
 import '../../core/models/time_block.dart';
 import '../../core/utils/time_utils.dart';
+import 'grid_screen_view_model.dart';
 
 Future<void> showCategoryBottomSheet(
   BuildContext context,
@@ -78,7 +78,7 @@ class _CategoryBottomSheet extends StatelessWidget {
                 categories: categories,
                 hexToColor: hexToColor,
                 onSelect: (category) async {
-                  await ref.read(timeBlockStoreProvider).insert(
+                  await ref.read(gridScreenViewModelProvider.notifier).saveBlock(
                         TimeBlock(
                           date: date,
                           startMinute: startMinute,

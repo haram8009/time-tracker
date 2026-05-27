@@ -11,9 +11,6 @@ import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
 import 'widgets/grid_cell.dart';
 import '../settings/settings_screen.dart';
-import '../../core/notifications/notification_port.dart';
-import '../../core/notifications/notification_scheduler.dart';
-import '../../core/services/settings_service.dart';
 
 class GridScreen extends ConsumerStatefulWidget {
   const GridScreen({super.key});
@@ -207,14 +204,6 @@ class _GridScreenState extends ConsumerState<GridScreen> {
       ),
       body: blocksAsync.when(
         data: (dbBlocks) {
-          if (_isToday(selectedDate)) {
-            final notifSettings = ref.read(settingsServiceProvider);
-            scheduleSmartNotification(
-              todayBlocks: dbBlocks,
-              settings: notifSettings,
-              port: ref.read(notificationPortProvider),
-            );
-          }
           return categoriesAsync.when(
             data: (categories) {
               final photosAsync =
