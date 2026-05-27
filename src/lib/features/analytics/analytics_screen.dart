@@ -208,18 +208,30 @@ class _HeatmapView extends ConsumerWidget {
         final maxVal =
             matrix.expand((row) => row).fold(0, (a, b) => a > b ? a : b);
 
-        return SingleChildScrollView(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            const labelWidth = 28.0;
+            const cellMargin = 2.0; // 1px each side
+            const numCells = 24;
+            final cellWidth =
+                ((constraints.maxWidth - 32 - labelWidth) / numCells) -
+                    cellMargin;
+            final clampedCell = cellWidth.clamp(8.0, 20.0);
+
+            return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const SizedBox(width: 28),
+                  const SizedBox(width: labelWidth),
                   ...List.generate(24, (h) {
-                    if (h % 3 != 0) return const SizedBox(width: 14);
+                    if (h % 3 != 0) {
+                      return SizedBox(width: clampedCell + cellMargin);
+                    }
                     return SizedBox(
-                      width: 14,
+                      width: clampedCell + cellMargin,
                       child: Text(
                         '$h',
                         style: const TextStyle(fontSize: 8),
@@ -233,7 +245,7 @@ class _HeatmapView extends ConsumerWidget {
                 return Row(
                   children: [
                     SizedBox(
-                      width: 28,
+                      width: labelWidth,
                       child: Text(
                         _days[day],
                         style: const TextStyle(fontSize: 11),
@@ -244,8 +256,8 @@ class _HeatmapView extends ConsumerWidget {
                       final val = matrix[day][hour];
                       final intensity = maxVal == 0 ? 0.0 : val / maxVal;
                       return Container(
-                        width: 14,
-                        height: 14,
+                        width: clampedCell,
+                        height: clampedCell,
                         margin: const EdgeInsets.all(1),
                         decoration: BoxDecoration(
                           color: Color.lerp(
@@ -285,6 +297,8 @@ class _HeatmapView extends ConsumerWidget {
               ),
             ],
           ),
+        );
+          },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
