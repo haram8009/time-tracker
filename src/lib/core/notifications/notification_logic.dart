@@ -1,4 +1,4 @@
-import '../services/settings_service.dart';
+import 'notification_settings.dart';
 
 /// 알림 스케줄 관련 순수 계산 로직. 플러그인 의존 없음 → 단위 테스트 가능.
 class NotificationLogic {
