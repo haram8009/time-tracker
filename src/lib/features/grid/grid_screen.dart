@@ -25,12 +25,70 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   late final ScrollController _scrollController;
   late final DragSelectionController _drag;
 
+  bool _isDragging = false;
+  Offset? _pointerDownPosition;
+  String _currentDateKey = '';
+
+  static const double _kDragThreshold = 8.0;
+  static const double _kTimeLabelWidth = 48.0;
+  static const double _kCellHeight = 32.0;
+
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
     _drag = DragSelectionController();
     _drag.addListener(() => setState(() {}));
+  }
+
+  int _positionToCellIndex(Offset localPos) {
+    final offset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    return ((localPos.dy + offset) / _kCellHeight).floor().clamp(0, 143);
+  }
+
+  void _handlePointerDown(PointerDownEvent e) {
+    if (e.localPosition.dx < _kTimeLabelWidth) return;
+    _pointerDownPosition = e.localPosition;
+  }
+
+  void _handlePointerMove(PointerMoveEvent e) {
+    if (_pointerDownPosition == null) return;
+    if (!_isDragging) {
+      final dy = (e.localPosition.dy - _pointerDownPosition!.dy).abs();
+      if (dy > _kDragThreshold) {
+        _drag.onDragStart(_positionToCellIndex(_pointerDownPosition!));
+        setState(() => _isDragging = true);
+      }
+    }
+    if (_isDragging) {
+      _drag.onDragUpdate(_positionToCellIndex(e.localPosition));
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent e) {
+    _pointerDownPosition = null;
+    if (!_isDragging) return;
+    _drag.onDragEnd();
+    setState(() => _isDragging = false);
+    final sel = _drag.selection;
+    if (sel != null) {
+      showCategoryBottomSheet(
+        context,
+        ref,
+        _currentDateKey,
+        sel.startMinute,
+        sel.endMinute,
+      ).then((_) => _drag.clearSelection());
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent e) {
+    _pointerDownPosition = null;
+    if (_isDragging) {
+      _drag.onDragCancel();
+      setState(() => _isDragging = false);
+    }
   }
 
   void _scrollToNow() {
@@ -159,41 +217,54 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             data: (categories) {
               final photosAsync =
                   ref.watch(photosForDateProvider(selectedDate));
+              _currentDateKey = dateKey(selectedDate);
               final cells = GridViewModel.compute(
                 blocks: dbBlocks,
                 categories: categories,
                 photos: photosAsync.valueOrNull ?? const [],
                 selectedIndices: _drag.selectedIndices,
               );
-              return ListView.builder(
-                controller: _scrollController,
-                itemCount: 144,
-                itemExtent: 32,
-                itemBuilder: (context, index) => GridCell(
-                  key: ValueKey(index),
-                  index: index,
-                  state: cells[index],
-                  onTap: () {
-                    final existing = vm.blockAtIndex(index, dbBlocks);
-                    if (existing != null) {
-                      _drag.clearSelection();
-                      showEditBlockBottomSheet(
-                          context, ref, existing, categories);
-                    } else {
-                      _drag.onDragStart(index);
-                      _drag.onDragEnd();
-                      final sel = _drag.selection;
-                      if (sel != null) {
-                        showCategoryBottomSheet(
-                          context,
-                          ref,
-                          dateKey(selectedDate),
-                          sel.startMinute,
-                          sel.endMinute,
-                        ).then((_) => _drag.clearSelection());
-                      }
-                    }
-                  },
+              return Listener(
+                onPointerDown: _handlePointerDown,
+                onPointerMove: _handlePointerMove,
+                onPointerUp: _handlePointerUp,
+                onPointerCancel: _handlePointerCancel,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: 144,
+                  itemExtent: 32,
+                  physics: _isDragging
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
+                  itemBuilder: (context, index) => GridCell(
+                    key: ValueKey(index),
+                    index: index,
+                    state: cells[index],
+                    onTap: _isDragging
+                        ? null
+                        : () {
+                            final existing =
+                                vm.blockAtIndex(index, dbBlocks);
+                            if (existing != null) {
+                              _drag.clearSelection();
+                              showEditBlockBottomSheet(
+                                  context, ref, existing, categories);
+                            } else {
+                              _drag.onDragStart(index);
+                              _drag.onDragEnd();
+                              final sel = _drag.selection;
+                              if (sel != null) {
+                                showCategoryBottomSheet(
+                                  context,
+                                  ref,
+                                  dateKey(selectedDate),
+                                  sel.startMinute,
+                                  sel.endMinute,
+                                ).then((_) => _drag.clearSelection());
+                              }
+                            }
+                          },
+                  ),
                 ),
               );
             },
