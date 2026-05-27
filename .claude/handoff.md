@@ -2,7 +2,7 @@
 **Date:** 2026-05-27  
 **Project dir:** `/Users/haram/dev/time-tracker/src`  
 **Platform:** Flutter (Dart), iOS + Android  
-**Next session focus:** iOS 빌드/실기기 검증 → 알림 백그라운드 재스케줄 → GitHub 이슈 close
+**Next session focus:** GitHub 이슈 #2~#12 close → 히트맵 임계값 설정화
 
 ---
 
@@ -27,21 +27,24 @@ PRD: `/Users/haram/dev/time-tracker/PRD.md`
 
 ```
 flutter analyze   → 0 issues ✓
-flutter test      → 50 passed ✓
+flutter test      → 59 passed ✓
 ```
 
-**구현 완료: 이슈 #2~#12 + 이번 세션 2건**
+**구현 완료: 이슈 #2~#12 전체 + 알림 백그라운드 재스케줄**
 
 | 커밋 | 내용 |
 |---|---|
+| `6073a52` | feat: 알림 백그라운드 재스케줄 구현 (#9) |
+| `3e7ea54` | chore: macOS 플러그인 등록 업데이트 + handoff 갱신 |
 | `37c09de` | feat: 커스텀 카테고리 관리 UI — 추가/수정/삭제 + 색상 팔레트 |
 | `543a11d` | feat: 멀티셀 드래그 선택 구현 — Listener + NeverScrollablePhysics |
 
 **GitHub 이슈:** #2~#12 OPEN 상태 — 닫아야 함  
-*사용자가 직접 실행 필요 (`gh auth login` 미완):*
+*사용자가 직접 실행 필요 (Claude Code 권한 제한):*
 ```bash
 gh issue close 2 3 4 5 6 7 8 9 10 11 12
 ```
+*gh auth는 이미 완료 (haram8009 계정)*
 
 ---
 
@@ -58,9 +61,10 @@ lib/
     models/                      — TimeBlock, Category, PhotoAsset, CellState
     services/
       photo_library_service.dart
-      settings_service.dart      — NotificationSettings, SettingsService
+      settings_service.dart      — NotificationSettings (loadFromPrefs 포함), SettingsService
     notifications/
-      notification_scheduler.dart — initNotifications(), scheduleSmartNotification()
+      notification_scheduler.dart — initNotifications(), scheduleSmartNotification(), scheduleWeeklyFallbackNotifications()
+      notification_logic.dart     — 순수 계산 로직 (fallbackFireMinute, inSleepWindow) ← 신규
   features/
     grid/
       grid_screen_view_model.dart — GridScreenState + StateNotifier
@@ -75,10 +79,11 @@ lib/
       analytics_screen.dart       — 일/주/월/히트맵 탭 + PieChart
     settings/
       settings_screen.dart        — 알림 on/off + 취침시간 + 카테고리 관리 ✓
-  main.dart                       — ProviderScope + _RootShell (BottomNavigationBar)
+  main.dart                       — ProviderScope + _RootShell + 시작 시 폴백 알림 예약
 test/
   core/db/category_store_test.dart
   core/db/time_block_store_test.dart
+  core/notifications/notification_logic_test.dart  — 9 tests ← 신규
   features/grid/drag_selection_controller_test.dart
   features/grid/grid_view_model_test.dart         — 10 tests
   features/analytics/analytics_engine_test.dart  — 15 tests
@@ -89,32 +94,48 @@ test/
 
 ## 이번 세션 구현 내용
 
-### 1. 멀티셀 드래그 선택 (`grid_screen.dart`)
+### 1. iOS 빌드 검증
 
-**방식:** `Listener`로 `ListView` 전체를 감싸 raw pointer 이벤트 수신  
-**핵심 로직:**
-- `onPointerDown`: x < 48px(시간 라벨 영역)이면 무시, 시작 위치 기록
-- `onPointerMove`: 수직 이동 8px 초과 시 드래그 모드 진입 → `_isDragging = true`
-- 드래그 중 `ListView.physics = NeverScrollableScrollPhysics()` 전환 (스크롤 충돌 방지)
-- `onPointerUp`: `onDragEnd()` → 카테고리 바텀시트 표시
-- `GridCell.onTap: _isDragging ? null : handler` — 드래그 중 탭 이벤트 억제
+- `flutter build ios --debug --no-codesign` → 성공 (58.6s)
+- iPhone 17 Pro 시뮬레이터 실행 + 그리드 화면 렌더링 정상 확인
 
-**셀 인덱스 계산:**
-```dart
-int _positionToCellIndex(Offset localPos) {
-  final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-  return ((localPos.dy + offset) / 32).floor().clamp(0, 143);
-}
+### 2. 알림 백그라운드 재스케줄 (`notification_scheduler.dart`, `notification_logic.dart`)
+
+**문제:** 기존엔 `GridScreen` 렌더 시에만 알림 예약 → 앱 미실행 날은 알림 없음
+
+**해결:** 앱 시작 시 앞으로 7일치 폴백 알림 선예약
+
+**알림 흐름 (신규):**
+```
+앱 시작
+  → initNotifications()
+  → NotificationSettings.loadFromPrefs()
+  → scheduleWeeklyFallbackNotifications()   ← 신규: ID 100~106, 취침 2시간 전 고정
+
+앱 열린 날 GridScreen data 로드
+  → scheduleSmartNotification()             ← 기존: ID 1, 마지막 블록 +3시간
+
+설정 변경 (알림 on/off, 취침시간)
+  → scheduleWeeklyFallbackNotifications()   ← 신규: 즉시 재스케줄
 ```
 
-### 2. 커스텀 카테고리 관리 UI (`settings_screen.dart`)
+**폴백 시각:** `sleepStartMinute - 120` (취침 23:00 → 폴백 21:00)  
+자정 넘김 처리: `target < 0 ? target + 1440 : target`
 
-- 설정 화면 하단에 "카테고리 관리" 섹션 추가
-- 카테고리 목록: 프리셋(읽기 전용 "기본" 뱃지) / 커스텀(수정·삭제 아이콘)
-- "카테고리 추가" 타일 → `AlertDialog` (이름 TextField + 12색 팔레트)
-- 수정: 기존값 pre-fill 후 동일 다이얼로그
-- 삭제: 확인 다이얼로그 후 `CategoryStore.delete(id)`
-- `CategoryStore` CRUD는 이미 완성 — UI만 신규 구현
+**ID 체계:**
+| 알림 | ID | 발화 기준 |
+|---|---|---|
+| 스마트 (오늘) | 1 | 마지막 블록 endMinute + 180분 |
+| 폴백 day+1 | 100 | 취침 시작 - 120분 (고정) |
+| 폴백 day+2 | 101 | 동일 |
+| … | … | … |
+| 폴백 day+7 | 106 | 동일 |
+
+**변경 파일:**
+- `notification_logic.dart` (신규) — `NotificationLogic.fallbackFireMinute`, `NotificationLogic.inSleepWindow`
+- `notification_scheduler.dart` — `scheduleWeeklyFallbackNotifications()` 추가, 기존 `_inSleepWindow/_fallbackFireMinute` → `NotificationLogic` 위임
+- `settings_service.dart` — `NotificationSettings.loadFromPrefs()` 추가, `setEnabled/setSleepStart/setSleepEnd`에 재스케줄 호출 추가
+- `main.dart` — 시작 시 `loadFromPrefs()` + `scheduleWeeklyFallbackNotifications()` 호출
 
 ---
 
@@ -123,17 +144,12 @@ int _positionToCellIndex(Offset localPos) {
 **네비게이션:** `_RootShell` → `IndexedStack` + `NavigationBar` (기록/분석 2탭)  
 **설정 진입:** GridScreen AppBar 우측 settings 아이콘 → push `SettingsScreen`
 
-**드래그 흐름 (신규):**
+**드래그 흐름:**
 1. `Listener.onPointerDown` → 시작 위치 저장
 2. `Listener.onPointerMove` (8px 초과) → `_isDragging = true`, `DragSelectionController.onDragStart()`
 3. 이후 move → `onDragUpdate()`, 셀 하이라이트 갱신
 4. `Listener.onPointerUp` → `onDragEnd()` → 카테고리 바텀시트
 5. 바텀시트 닫힘 → `clearSelection()`
-
-**알림 흐름:**
-- `initNotifications()` — `main()`에서 시작 시 초기화
-- `scheduleSmartNotification(todayBlocks, settings)` — GridScreen data 콜백, 오늘 날짜만
-- 로직: 마지막 블록 endMinute + 180분 → 취침시간(23:00~07:00) 내면 스킵
 
 ---
 
@@ -141,10 +157,8 @@ int _positionToCellIndex(Offset localPos) {
 
 | 우선순위 | 항목 | 상태 |
 |---|---|---|
-| 높음 | iOS 빌드/실기기 검증 | 미완 |
-| 중간 | GitHub 이슈 #2~#12 close | `gh auth login` 필요 |
-| 낮음 | 알림 백그라운드 재스케줄 | 미구현 — 현재 앱 실행 시에만 |
-| 낮음 | 히트맵 임계값 조정 가능하게 | 현재 5개 블록 하드코딩 |
+| 높음 | GitHub 이슈 #2~#12 close | 사용자 직접 실행 필요 (`gh auth` 완료) |
+| 낮음 | 히트맵 임계값 조정 가능하게 | 현재 5개 블록 하드코딩 (`analytics_engine.dart`) |
 
 ---
 
