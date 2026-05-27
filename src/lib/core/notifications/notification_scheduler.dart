@@ -1,7 +1,7 @@
 import '../models/time_block.dart';
-import '../services/settings_service.dart';
 import 'notification_logic.dart';
 import 'notification_port.dart';
+import 'notification_settings.dart';
 
 const _notifId = 1;
 const _gapMinutes = 180; // 3시간

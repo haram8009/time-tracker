@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/notifications/notification_scheduler.dart';
-import 'core/services/settings_service.dart';
+import 'core/notifications/notification_settings.dart';
+import 'core/services/preferences_port.dart';
 import 'features/analytics/analytics_screen.dart';
 import 'features/grid/grid_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final rawPrefs = await SharedPreferences.getInstance();
+  final prefsAdapter = SharedPrefsAdapter(rawPrefs);
+
   final port = FlutterLocalNotificationsAdapter();
   await port.initialize();
-  final settings = await NotificationSettings.loadFromPrefs();
+
+  final settings = NotificationSettings(
+    enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ?? true,
+    sleepStartMinute: prefsAdapter.getInt(NotificationSettings.keySleepStart) ?? 1380,
+    sleepEndMinute: prefsAdapter.getInt(NotificationSettings.keySleepEnd) ?? 420,
+  );
   await scheduleWeeklyFallbackNotifications(settings, port);
+
   runApp(ProviderScope(
-    overrides: [notificationPortProvider.overrideWithValue(port)],
+    overrides: [
+      sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
+      notificationPortProvider.overrideWithValue(port),
+    ],
     child: const TimeTrackerApp(),
   ));
 }
