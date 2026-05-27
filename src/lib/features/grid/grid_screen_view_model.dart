@@ -40,10 +40,21 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
         selectedDate: state.selectedDate.subtract(const Duration(days: 1)),
       );
 
-  void goToNextDay() =>
-      state = state.copyWith(
-        selectedDate: state.selectedDate.add(const Duration(days: 1)),
-      );
+  void goToNextDay() {
+    final next = state.selectedDate.add(const Duration(days: 1));
+    final today = DateTime.now();
+    if (next.year > today.year ||
+        (next.year == today.year && next.month > today.month) ||
+        (next.year == today.year &&
+            next.month == today.month &&
+            next.day > today.day)) {
+      return;
+    }
+    state = state.copyWith(selectedDate: next);
+  }
+
+  void goToToday() =>
+      state = state.copyWith(selectedDate: DateTime.now());
 
   TimeBlock? blockAtIndex(int index, List<TimeBlock> blocks) {
     final cellStart = GridViewModel.indexToMinute(index);

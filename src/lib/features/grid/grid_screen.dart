@@ -46,6 +46,20 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     );
   }
 
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
+  }
+
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -58,6 +72,14 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
       if (prev?.dbReady == false && next.dbReady == true) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
+      } else if (prev?.selectedDate != next.selectedDate) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_isToday(next.selectedDate)) {
+            _scrollToNow();
+          } else {
+            _scrollToTop();
+          }
+        });
       }
     });
 
@@ -94,6 +116,14 @@ class _GridScreenState extends ConsumerState<GridScreen> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         actions: [
+          if (!_isToday(selectedDate))
+            TextButton(
+              onPressed: () {
+                vm.goToToday();
+                _drag.clearSelection();
+              },
+              child: const Text('오늘', style: TextStyle(fontSize: 14)),
+            ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             tooltip: '다음 날',
