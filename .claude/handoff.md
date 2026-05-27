@@ -2,12 +2,12 @@
 **Date:** 2026-05-27  
 **Project dir:** `/Users/haram/dev/time-tracker/src`  
 **Platform:** Flutter (Dart), iOS + Android  
-**Next session focus:** GridViewModel 테스트 추가(#4) → 남은 기능 이슈(#9/#10/#11/#12) 구현
+**Next session focus:** iOS 빌드/실기기 검증 → 알림 백그라운드 재스케줄 → GitHub 이슈 close
 
 ---
 
 ## Suggested Skills
-- `/caveman` — 이 프로젝트의 기본 응답 스타일. 첫 응답 시 반드시 호출.
+- `/caveman` — **세션 시작 즉시 호출. 이 프로젝트의 기본 응답 스타일.**
 
 ---
 
@@ -16,157 +16,142 @@
 PRD: `/Users/haram/dev/time-tracker/PRD.md`  
 실제 소스: `/Users/haram/dev/time-tracker/src/` (lib/, test/ 모두 여기)
 
-10분 단위 그리드 기반 시간 추적 앱. 하루 144칸 그리드에서 셀 탭으로 카테고리 지정, 카메라롤 사진 자동 썸네일, 누적 데이터 분석.
+10분 단위 그리드 기반 시간 추적 앱. 하루 144칸 그리드에서 셀 탭/드래그로 카테고리 지정, 카메라롤 사진 자동 썸네일, 누적 데이터 분석.
 
-**패키지:** `sqflite`, `photo_manager`, `flutter_local_notifications`, `flutter_riverpod`  
-**상태관리:** Riverpod (코드 생성 없는 plain `StateNotifierProvider` / `StreamProvider`)
+**패키지:** `sqflite`, `photo_manager`, `flutter_local_notifications`, `flutter_riverpod`, `shared_preferences`, `timezone`, `fl_chart`  
+**상태관리:** Riverpod (plain `StateNotifierProvider` / `StreamProvider` / `FutureProvider`)
 
 ---
 
-## 이번 세션에서 한 일 — 아키텍처 리팩토링
+## 현재 상태 (2026-05-27 기준)
 
-### 배경
-`/improve-codebase-architecture` 스킬로 5개 후보를 도출하고, #1+#2+#3을 한 번에 구현했다.
+```
+flutter analyze   → 0 issues ✓
+flutter test      → 50 passed ✓
+```
 
-### 변경된 파일 트리
+**구현 완료: 이슈 #2~#12 + 이번 세션 2건**
+
+| 커밋 | 내용 |
+|---|---|
+| `37c09de` | feat: 커스텀 카테고리 관리 UI — 추가/수정/삭제 + 색상 팔레트 |
+| `543a11d` | feat: 멀티셀 드래그 선택 구현 — Listener + NeverScrollablePhysics |
+
+**GitHub 이슈:** #2~#12 OPEN 상태 — 닫아야 함  
+*사용자가 직접 실행 필요 (`gh auth login` 미완):*
+```bash
+gh issue close 2 3 4 5 6 7 8 9 10 11 12
+```
+
+---
+
+## 파일 트리 (핵심)
 
 ```
 lib/
   core/
-    utils/
-      time_utils.dart              ★ NEW — hexToColor, dateKey, formatMinute 공유 유틸
-    db/…                           # 변경 없음
-    models/…                       # 변경 없음
-    services/…                     # 변경 없음
+    utils/time_utils.dart
+    db/
+      database_helper.dart
+      time_block_store.dart      — fetchByDate, fetchByDateRange, watchByDate
+      category_store.dart        — CRUD 완료 (insert/update/delete/watchAll)
+    models/                      — TimeBlock, Category, PhotoAsset, CellState
+    services/
+      photo_library_service.dart
+      settings_service.dart      — NotificationSettings, SettingsService
+    notifications/
+      notification_scheduler.dart — initNotifications(), scheduleSmartNotification()
   features/
     grid/
-      grid_screen_view_model.dart  ★ NEW — GridScreenState + GridScreenViewModel(StateNotifier)
-      grid_view_model.dart         ★ MODIFIED — 로컬 TimeBlock DTO 삭제, compute()가 categories 받아 Color 변환
-      grid_screen.dart             ★ MODIFIED — 얇은 widget으로 단순화
-      category_bottom_sheet.dart   ★ MODIFIED — time_utils 사용
-      edit_block_bottom_sheet.dart ★ MODIFIED — time_utils 사용
-      drag_selection_controller.dart  # 변경 없음
-      widgets/grid_cell.dart          # 변경 없음
+      grid_screen_view_model.dart — GridScreenState + StateNotifier
+      grid_view_model.dart        — compute() 순수 Dart
+      grid_screen.dart            — Listener 드래그 + NeverScrollablePhysics ✓
+      category_bottom_sheet.dart
+      edit_block_bottom_sheet.dart
+      drag_selection_controller.dart — onDragStart/Update/End/Cancel ✓
+      widgets/grid_cell.dart
+    analytics/
+      analytics_engine.dart       — computeStats, computeHeatmap, daily/weekly/monthly
+      analytics_screen.dart       — 일/주/월/히트맵 탭 + PieChart
+    settings/
+      settings_screen.dart        — 알림 on/off + 취침시간 + 카테고리 관리 ✓
+  main.dart                       — ProviderScope + _RootShell (BottomNavigationBar)
 test/
-  widget_test.dart                 ★ MODIFIED — sqflite_ffi 초기화 추가
+  core/db/category_store_test.dart
+  core/db/time_block_store_test.dart
+  features/grid/drag_selection_controller_test.dart
+  features/grid/grid_view_model_test.dart         — 10 tests
+  features/analytics/analytics_engine_test.dart  — 15 tests
+  widget_test.dart
 ```
 
-### 핵심 설계 결정
+---
 
-**GridScreenViewModel (StateNotifier):**
-- `GridScreenState { selectedDate, dbReady }` 소유
-- `_init()`: DB 초기화 + seed — widget에서 완전히 제거됨
-- `goToPreviousDay()`, `goToNextDay()`: 날짜 이동
-- `blockAtIndex(index, blocks)`: overlap 탐색 로직 (이전 `_blockAtIndex()` 중복 제거)
-- Provider: `gridScreenViewModelProvider` (StateNotifierProvider)
+## 이번 세션 구현 내용
 
-**GridViewModel.compute() 시그니처 변경:**
+### 1. 멀티셀 드래그 선택 (`grid_screen.dart`)
+
+**방식:** `Listener`로 `ListView` 전체를 감싸 raw pointer 이벤트 수신  
+**핵심 로직:**
+- `onPointerDown`: x < 48px(시간 라벨 영역)이면 무시, 시작 위치 기록
+- `onPointerMove`: 수직 이동 8px 초과 시 드래그 모드 진입 → `_isDragging = true`
+- 드래그 중 `ListView.physics = NeverScrollableScrollPhysics()` 전환 (스크롤 충돌 방지)
+- `onPointerUp`: `onDragEnd()` → 카테고리 바텀시트 표시
+- `GridCell.onTap: _isDragging ? null : handler` — 드래그 중 탭 이벤트 억제
+
+**셀 인덱스 계산:**
 ```dart
-// Before
-static List<CellState> compute({
-  required List<TimeBlock> blocks,   // 로컬 DTO (Color 포함)
-  required List<PhotoAsset> photos,
-  required Set<int> selectedIndices,
-})
-
-// After
-static List<CellState> compute({
-  required List<TimeBlock> blocks,      // core/models/TimeBlock (정식 모델)
-  required List<Category> categories,  // Color 변환을 내부에서 처리
-  required List<PhotoAsset> photos,
-  required Set<int> selectedIndices,
-})
+int _positionToCellIndex(Offset localPos) {
+  final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+  return ((localPos.dy + offset) / 32).floor().clamp(0, 143);
+}
 ```
 
-**_GridScreenState 필드:**  
-6개 → 2개 (`_scrollController`, `_drag`). DB init / 날짜 / overlap 로직 전부 viewmodel로 이동.
+### 2. 커스텀 카테고리 관리 UI (`settings_screen.dart`)
 
-**time_utils.dart:**  
-3개 파일에 복사돼 있던 `_hexToColor`, `_dateKey`, `_formatMinute`/_fmt`를 
-`lib/core/utils/time_utils.dart`의 `hexToColor()`, `dateKey()`, `formatMinute()` 로 통합.
-
-**widget_test.dart:**  
-ViewModelProvider 생성 시 DB init이 `pump()` 중 발생하므로, 테스트에 sqflite_ffi 초기화 추가.
-
-### 현재 테스트 현황
-```
-test/
-  core/db/category_store_test.dart     # 9개 — 모두 통과
-  core/db/time_block_store_test.dart   # 7개 — 모두 통과
-  features/grid/drag_selection_controller_test.dart  # 8개 — 모두 통과
-  widget_test.dart                     # 1개 — 통과
-```
-총 25/25 통과. `flutter analyze` 0 issues.
+- 설정 화면 하단에 "카테고리 관리" 섹션 추가
+- 카테고리 목록: 프리셋(읽기 전용 "기본" 뱃지) / 커스텀(수정·삭제 아이콘)
+- "카테고리 추가" 타일 → `AlertDialog` (이름 TextField + 12색 팔레트)
+- 수정: 기존값 pre-fill 후 동일 다이얼로그
+- 삭제: 확인 다이얼로그 후 `CategoryStore.delete(id)`
+- `CategoryStore` CRUD는 이미 완성 — UI만 신규 구현
 
 ---
 
-## 다음 할 일 (우선순위 순)
+## 아키텍처 요약
 
-### 즉시: GridViewModel.compute() 테스트 추가 (아키텍처 후보 #4)
+**네비게이션:** `_RootShell` → `IndexedStack` + `NavigationBar` (기록/분석 2탭)  
+**설정 진입:** GridScreen AppBar 우측 settings 아이콘 → push `SettingsScreen`
 
-파일: `test/features/grid/grid_view_model_test.dart` (아직 없음)
+**드래그 흐름 (신규):**
+1. `Listener.onPointerDown` → 시작 위치 저장
+2. `Listener.onPointerMove` (8px 초과) → `_isDragging = true`, `DragSelectionController.onDragStart()`
+3. 이후 move → `onDragUpdate()`, 셀 하이라이트 갱신
+4. `Listener.onPointerUp` → `onDragEnd()` → 카테고리 바텀시트
+5. 바텀시트 닫힘 → `clearSelection()`
 
-테스트해야 할 것:
-- 블록 하나 → 해당 셀만 색상이 채워짐 (overlap 로직)
-- 블록 경계: startMinute < cellEnd && endMinute > cellStart
-- 여러 블록 겹침 → 첫 번째 블록 색상 우선
-- 사진 → takenMinute에 해당하는 셀에 thumbnail 배치 (최대 2개)
-- selectedIndices → 해당 셀 isSelected=true
-- 빈 입력 → 144개 전부 빈 CellState
-
-순수 Dart — mock 불필요, sqflite 불필요.
-
-### 그 다음: 기능 이슈 (#10 → #9 → #11 → #12)
-
-#### #10 날짜 네비게이션 마무리
-`GridScreenViewModel`이 이미 날짜 이동을 소유하고 있으므로 여기에 추가:
-- `goToNextDay()` — 미래 날짜 이동 불가 제한 (today 초과 시 차단)
-- `goToToday()` — 오늘로 즉시 복귀
-- AppBar에 "오늘" 버튼 추가 (action)
-- 날짜 변경 시 스크롤 재조정: 오늘이면 현재시각, 과거면 상단
-
-#### #9 스마트 알림
-```
-lib/core/notifications/notification_scheduler.dart  # 아직 비어 있음
-lib/features/settings/settings_screen.dart          # 아직 없음
-```
-- `NotificationScheduler`: 마지막 블록 종료 시각 조회 → 3시간 공백 → 알림
-- 취침시간(23:00~07:00) 제외
-- 설정 화면: 알림 on/off + 취침시간
-- iOS `AppDelegate`에 알림 권한 요청 추가
-- `main.dart`에서 `flutter_local_notifications` 초기화
-
-#### #11 분석 - 카테고리 비율 차트
-- `lib/features/analytics/analytics_engine.dart` (순수 Dart) 신규
-  - `computeDailyStats(List<TimeBlock>, List<Category>) → List<CategoryStat>`
-  - `computeWeeklyStats(...)`, `computeMonthlyStats(...)`
-- `lib/features/analytics/analytics_screen.dart` — 일/주/월 탭 + 차트
-- 차트 패키지: `fl_chart: ^0.69.0` pubspec 추가 필요
-- 단위 테스트 필수
-- BottomNavigationBar로 메인 화면에서 진입
-
-#### #12 분석 - 시간대 히트맵
-- `AnalyticsEngine`에 `computeHeatmap(...)` 추가
-- 히트맵 위젯: 시간(Y축) × 요일(X축), 색상 강도 = 빈도
-- 데이터 2주 미만이면 안내 메시지
-- #11 완료 후 진행
+**알림 흐름:**
+- `initNotifications()` — `main()`에서 시작 시 초기화
+- `scheduleSmartNotification(todayBlocks, settings)` — GridScreen data 콜백, 오늘 날짜만
+- 로직: 마지막 블록 endMinute + 180분 → 취침시간(23:00~07:00) 내면 스킵
 
 ---
 
-## 빠른 컨텍스트 복원용 명령
+## 남은 작업
+
+| 우선순위 | 항목 | 상태 |
+|---|---|---|
+| 높음 | iOS 빌드/실기기 검증 | 미완 |
+| 중간 | GitHub 이슈 #2~#12 close | `gh auth login` 필요 |
+| 낮음 | 알림 백그라운드 재스케줄 | 미구현 — 현재 앱 실행 시에만 |
+| 낮음 | 히트맵 임계값 조정 가능하게 | 현재 5개 블록 하드코딩 |
+
+---
+
+## 빠른 컨텍스트 복원
 
 ```bash
 cd /Users/haram/dev/time-tracker/src
-flutter analyze          # 0 issues 확인
-flutter test             # 25 passed 확인
-gh issue list            # 남은 이슈 확인
+flutter analyze && flutter test
+git log --oneline -10
 ```
-
----
-
-## 알려진 미구현 / 개선 여지
-
-1. **실제 스와이프 드래그** — `DragSelectionController` 완전히 구현됨. GridCell에서 pan 제스처 + NeverScrollableScrollPhysics 조합 필요.
-2. **커스텀 카테고리 추가 UI** — `CategoryStore`의 CRUD는 구현됨. 설정 화면 UI 미구현.
-3. **GitHub 이슈 클로즈** — 이슈 #2~#8 구현 완료, GitHub에 아직 OPEN. `gh issue close 2 3 4 5 6 7 8` 실행 필요.
-4. **아키텍처 후보 #5** — Store 스트림 알림 심화(변경마다 전체 DB 재조회 → 증분 업데이트). 분석 기능 추가 후 재평가 권장.
