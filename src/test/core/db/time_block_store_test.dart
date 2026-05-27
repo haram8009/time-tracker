@@ -389,5 +389,33 @@ void main() {
       final list = await stream.first;
       expect(list.length, 1);
     });
+
+    test('changes emits on insert', () async {
+      final store = TimeBlockStore();
+      final future = store.changes.first;
+      await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+      ));
+      await expectLater(future, completes);
+    });
+
+    test('changes emits on replaceRange', () async {
+      final store = TimeBlockStore();
+      final future = store.changes.first;
+      await store.replaceRange(const TimeBlock(
+        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+      ));
+      await expectLater(future, completes);
+    });
+
+    test('changes emits on delete', () async {
+      final store = TimeBlockStore();
+      final inserted = await store.insert(const TimeBlock(
+        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+      ));
+      final future = store.changes.first;
+      await store.delete(inserted.id!);
+      await expectLater(future, completes);
+    });
   });
 }
