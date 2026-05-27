@@ -14,6 +14,11 @@ class TimeBlockStore {
   // One broadcast controller per date that has active listeners.
   final _controllers = <String, StreamController<List<TimeBlock>>>{};
 
+  final _changesController = StreamController<void>.broadcast();
+
+  /// Emits whenever any block is inserted, updated, or deleted.
+  Stream<void> get changes => _changesController.stream;
+
   Future<Database> get _db => DatabaseHelper.instance.database;
 
   // ── Read ─────────────────────────────────────────────────────────────────
@@ -257,6 +262,7 @@ class TimeBlockStore {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<void> _notify(String date) async {
+    if (!_changesController.isClosed) _changesController.add(null);
     final controller = _controllers[date];
     if (controller == null || controller.isClosed) return;
     final list = await fetchByDate(date);
@@ -264,6 +270,7 @@ class TimeBlockStore {
   }
 
   void dispose() {
+    _changesController.close();
     for (final c in _controllers.values) {
       c.close();
     }
@@ -287,8 +294,13 @@ final timeBlocksStreamProvider =
   return ref.watch(timeBlockStoreProvider).watchByDate(date);
 });
 
-/// One-shot fetch of blocks between two YYYY-MM-DD dates (inclusive).
+/// Reactive stream of blocks between two YYYY-MM-DD dates (inclusive).
+/// Re-fetches whenever any block is inserted, updated, or deleted.
 final timeBlocksRangeProvider =
-    FutureProvider.family<List<TimeBlock>, (String, String)>((ref, range) {
-  return ref.watch(timeBlockStoreProvider).fetchByDateRange(range.$1, range.$2);
+    StreamProvider.family<List<TimeBlock>, (String, String)>((ref, range) async* {
+  final store = ref.watch(timeBlockStoreProvider);
+  yield await store.fetchByDateRange(range.$1, range.$2);
+  await for (final _ in store.changes) {
+    yield await store.fetchByDateRange(range.$1, range.$2);
+  }
 });
