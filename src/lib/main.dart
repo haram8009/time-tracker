@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/notifications/notification_port.dart';
 import 'core/notifications/notification_scheduler.dart';
 import 'core/services/settings_service.dart';
 import 'features/analytics/analytics_screen.dart';
@@ -7,10 +8,14 @@ import 'features/grid/grid_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initNotifications();
+  final port = FlutterLocalNotificationsAdapter();
+  await port.initialize();
   final settings = await NotificationSettings.loadFromPrefs();
-  await scheduleWeeklyFallbackNotifications(settings);
-  runApp(const ProviderScope(child: TimeTrackerApp()));
+  await scheduleWeeklyFallbackNotifications(settings, port);
+  runApp(ProviderScope(
+    overrides: [notificationPortProvider.overrideWithValue(port)],
+    child: const TimeTrackerApp(),
+  ));
 }
 
 class TimeTrackerApp extends StatelessWidget {

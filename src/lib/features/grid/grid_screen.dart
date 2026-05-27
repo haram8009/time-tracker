@@ -11,6 +11,7 @@ import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
 import 'widgets/grid_cell.dart';
 import '../settings/settings_screen.dart';
+import '../../core/notifications/notification_port.dart';
 import '../../core/notifications/notification_scheduler.dart';
 import '../../core/services/settings_service.dart';
 
@@ -211,6 +212,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             scheduleSmartNotification(
               todayBlocks: dbBlocks,
               settings: notifSettings,
+              port: ref.read(notificationPortProvider),
             );
           }
           return categoriesAsync.when(

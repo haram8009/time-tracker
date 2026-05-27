@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../notifications/notification_port.dart';
 import '../notifications/notification_scheduler.dart';
 
 class NotificationSettings {
@@ -43,7 +44,9 @@ class SettingsService extends StateNotifier<NotificationSettings> {
   static const _keySleepStart = NotificationSettings.keySleepStart;
   static const _keySleepEnd = NotificationSettings.keySleepEnd;
 
-  SettingsService() : super(const NotificationSettings()) {
+  final NotificationPort _port;
+
+  SettingsService(this._port) : super(const NotificationSettings()) {
     _load();
   }
 
@@ -60,24 +63,24 @@ class SettingsService extends StateNotifier<NotificationSettings> {
     state = state.copyWith(enabled: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyEnabled, value);
-    await scheduleWeeklyFallbackNotifications(state);
+    await scheduleWeeklyFallbackNotifications(state, _port);
   }
 
   Future<void> setSleepStart(int minute) async {
     state = state.copyWith(sleepStartMinute: minute);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keySleepStart, minute);
-    await scheduleWeeklyFallbackNotifications(state);
+    await scheduleWeeklyFallbackNotifications(state, _port);
   }
 
   Future<void> setSleepEnd(int minute) async {
     state = state.copyWith(sleepEndMinute: minute);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keySleepEnd, minute);
-    await scheduleWeeklyFallbackNotifications(state);
+    await scheduleWeeklyFallbackNotifications(state, _port);
   }
 }
 
 final settingsServiceProvider =
     StateNotifierProvider<SettingsService, NotificationSettings>(
-        (_) => SettingsService());
+        (ref) => SettingsService(ref.read(notificationPortProvider)));
