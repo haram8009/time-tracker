@@ -13,74 +13,27 @@ class GridCell extends StatelessWidget {
     this.onTap,
   });
 
-  bool get _isHourMark => index % 6 == 0;
-
-  String get _timeLabel {
-    if (_isHourMark) {
-      final hour = index ~/ 6;
-      return '${hour.toString().padLeft(2, '0')}:00';
-    }
-    return '';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 48,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text(
-                  _timeLabel,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade600,
-                    height: 1,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.opaque,
-              child: _CellBody(
-                state: state,
-                isHourMark: _isHourMark,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: _CellBody(state: state),
     );
   }
 }
 
 class _CellBody extends StatelessWidget {
   final CellState state;
-  final bool isHourMark;
 
-  const _CellBody({
-    required this.state,
-    required this.isHourMark,
-  });
+  const _CellBody({required this.state});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: isHourMark ? Colors.grey.shade400 : Colors.grey.shade300,
-            width: isHourMark ? 1.0 : 0.5,
-          ),
+          bottom: BorderSide(color: Colors.grey.shade400, width: 1.0),
         ),
       ),
       child: Stack(

@@ -40,9 +40,16 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   }
 
   int _positionToCellIndex(Offset localPos) {
-    final offset =
+    final scrollOffset =
         _scrollController.hasClients ? _scrollController.offset : 0.0;
-    return ((localPos.dy + offset) / _kCellHeight).floor().clamp(0, 143);
+    final rowIndex =
+        ((localPos.dy + scrollOffset) / _kCellHeight).floor().clamp(0, 23);
+    final availableWidth =
+        MediaQuery.of(context).size.width - _kTimeLabelWidth;
+    final cellWidth = availableWidth / 6;
+    final colIndex =
+        ((localPos.dx - _kTimeLabelWidth) / cellWidth).floor().clamp(0, 5);
+    return (rowIndex * 6 + colIndex).clamp(0, 143);
   }
 
   void _handlePointerDown(PointerDownEvent e) {
@@ -93,11 +100,12 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     if (!_scrollController.hasClients) return;
     final now = DateTime.now();
     final idx = GridViewModel.minuteToIndex(now.hour * 60 + now.minute);
-    const cellH = 32.0;
+    final rowIndex = idx ~/ 6;
     final screenH = MediaQuery.of(context).size.height;
     final topPad = MediaQuery.of(context).padding.top + kToolbarHeight;
     final offset =
-        (idx * cellH - (screenH - topPad) / 2).clamp(0.0, double.infinity);
+        (rowIndex * _kCellHeight - (screenH - topPad) / 2)
+            .clamp(0.0, double.infinity);
     _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 400),
@@ -222,40 +230,69 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                 onPointerCancel: _handlePointerCancel,
                 child: ListView.builder(
                   controller: _scrollController,
-                  itemCount: 144,
-                  itemExtent: 32,
+                  itemCount: 24,
+                  itemExtent: _kCellHeight,
                   physics: _isDragging
                       ? const NeverScrollableScrollPhysics()
                       : null,
-                  itemBuilder: (context, index) => GridCell(
-                    key: ValueKey(index),
-                    index: index,
-                    state: cells[index],
-                    onTap: _isDragging
-                        ? null
-                        : () {
-                            final existing =
-                                vm.blockAtIndex(index, dbBlocks);
-                            if (existing != null) {
-                              _drag.clearSelection();
-                              showEditBlockBottomSheet(
-                                  context, ref, existing, categories);
-                            } else {
-                              _drag.onDragStart(index);
-                              _drag.onDragEnd();
-                              final sel = _drag.selection;
-                              if (sel != null) {
-                                showCategoryBottomSheet(
-                                  context,
-                                  ref,
-                                  dateKey(selectedDate),
-                                  sel.startMinute,
-                                  sel.endMinute,
-                                ).then((_) => _drag.clearSelection());
-                              }
-                            }
-                          },
-                  ),
+                  itemBuilder: (context, rowIndex) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: _kTimeLabelWidth,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Text(
+                                '${rowIndex.toString().padLeft(2, '0')}:00',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade600,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        ...List.generate(6, (col) {
+                          final cellIndex = rowIndex * 6 + col;
+                          return Expanded(
+                            child: GridCell(
+                              key: ValueKey(cellIndex),
+                              index: cellIndex,
+                              state: cells[cellIndex],
+                              onTap: _isDragging
+                                  ? null
+                                  : () {
+                                      final existing =
+                                          vm.blockAtIndex(cellIndex, dbBlocks);
+                                      if (existing != null) {
+                                        _drag.clearSelection();
+                                        showEditBlockBottomSheet(
+                                            context, ref, existing, categories);
+                                      } else {
+                                        _drag.onDragStart(cellIndex);
+                                        _drag.onDragEnd();
+                                        final sel = _drag.selection;
+                                        if (sel != null) {
+                                          showCategoryBottomSheet(
+                                            context,
+                                            ref,
+                                            dateKey(selectedDate),
+                                            sel.startMinute,
+                                            sel.endMinute,
+                                          ).then((_) => _drag.clearSelection());
+                                        }
+                                      }
+                                    },
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  },
                 ),
               );
             },
