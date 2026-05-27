@@ -70,6 +70,55 @@ class TimeBlockStore {
     return created;
   }
 
+  /// Inserts [block], merging with adjacent same-category blocks if present.
+  Future<TimeBlock> mergeOrInsert(TimeBlock block) async {
+    final db = await _db;
+    late TimeBlock result;
+
+    await db.transaction((txn) async {
+      final prevRows = await txn.query(
+        'time_blocks',
+        where: 'date = ? AND categoryId = ? AND endMinute = ?',
+        whereArgs: [block.date, block.categoryId, block.startMinute],
+        limit: 1,
+      );
+      final nextRows = await txn.query(
+        'time_blocks',
+        where: 'date = ? AND categoryId = ? AND startMinute = ?',
+        whereArgs: [block.date, block.categoryId, block.endMinute],
+        limit: 1,
+      );
+
+      final prev = prevRows.isNotEmpty ? TimeBlock.fromMap(prevRows.first) : null;
+      final next = nextRows.isNotEmpty ? TimeBlock.fromMap(nextRows.first) : null;
+
+      if (prev != null && next != null) {
+        final merged = prev.copyWith(endMinute: next.endMinute);
+        await txn.update('time_blocks', merged.toMap(),
+            where: 'id = ?', whereArgs: [prev.id]);
+        await txn.delete('time_blocks', where: 'id = ?', whereArgs: [next.id]);
+        result = merged;
+      } else if (prev != null) {
+        final extended = prev.copyWith(endMinute: block.endMinute);
+        await txn.update('time_blocks', extended.toMap(),
+            where: 'id = ?', whereArgs: [prev.id]);
+        result = extended;
+      } else if (next != null) {
+        final extended = next.copyWith(startMinute: block.startMinute);
+        await txn.update('time_blocks', extended.toMap(),
+            where: 'id = ?', whereArgs: [next.id]);
+        result = extended;
+      } else {
+        final id = await txn.insert('time_blocks', block.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+        result = block.copyWith(id: id);
+      }
+    });
+
+    await _notify(block.date);
+    return result;
+  }
+
   Future<void> update(TimeBlock block) async {
     assert(block.id != null, 'Cannot update a TimeBlock without an id');
     final db = await _db;

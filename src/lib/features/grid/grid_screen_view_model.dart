@@ -70,7 +70,7 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
 
   Future<void> saveBlock(TimeBlock block) async {
     final store = _ref.read(timeBlockStoreProvider);
-    await store.insert(block);
+    await store.mergeOrInsert(block);
 
     final todayKey = dateKey(DateTime.now());
     if (block.date == todayKey) {
