@@ -29,6 +29,17 @@ class TimeBlockStore {
     return rows.map(TimeBlock.fromMap).toList();
   }
 
+  Future<List<TimeBlock>> fetchByDateRange(String from, String to) async {
+    final db = await _db;
+    final rows = await db.query(
+      'time_blocks',
+      where: 'date >= ? AND date <= ?',
+      whereArgs: [from, to],
+      orderBy: 'date ASC, startMinute ASC',
+    );
+    return rows.map(TimeBlock.fromMap).toList();
+  }
+
   Stream<List<TimeBlock>> watchByDate(String date) {
     final controller = _controllers.putIfAbsent(
       date,
@@ -118,4 +129,10 @@ final timeBlockStoreProvider = Provider<TimeBlockStore>((ref) {
 final timeBlocksStreamProvider =
     StreamProvider.family<List<TimeBlock>, String>((ref, date) {
   return ref.watch(timeBlockStoreProvider).watchByDate(date);
+});
+
+/// One-shot fetch of blocks between two YYYY-MM-DD dates (inclusive).
+final timeBlocksRangeProvider =
+    FutureProvider.family<List<TimeBlock>, (String, String)>((ref, range) {
+  return ref.watch(timeBlockStoreProvider).fetchByDateRange(range.$1, range.$2);
 });
