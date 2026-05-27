@@ -223,6 +223,157 @@ void main() {
       expect(all.length, 2);
     });
 
+    group('replaceRange', () {
+      test('no overlap: plain insert', () async {
+        final store = TimeBlockStore();
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        ));
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 1);
+        expect(all.first.startMinute, 100);
+        expect(all.first.endMinute, 110);
+      });
+
+      test('fully covered block deleted', () async {
+        final store = TimeBlockStore();
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        ));
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        ));
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 1);
+        expect(all.first.startMinute, 100);
+        expect(all.first.endMinute, 110);
+      });
+
+      test('케이스1: 재할당 셀과 인접 동일 카테고리 병합', () async {
+        final store = TimeBlockStore();
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('categories',
+            {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
+
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+        ));
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 2,
+        ));
+
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 2,
+        ));
+
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 1);
+        expect(all.first.startMinute, 0);
+        expect(all.first.endMinute, 20);
+        expect(all.first.categoryId, 2);
+      });
+
+      test('케이스2: 기존 블록 내부 범위 → split', () async {
+        final store = TimeBlockStore();
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('categories',
+            {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
+
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 30, categoryId: 1,
+        ));
+
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 2,
+        ));
+
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 3);
+        expect(all[0].startMinute, 0);
+        expect(all[0].endMinute, 10);
+        expect(all[0].categoryId, 1);
+        expect(all[1].startMinute, 10);
+        expect(all[1].endMinute, 20);
+        expect(all[1].categoryId, 2);
+        expect(all[2].startMinute, 20);
+        expect(all[2].endMinute, 30);
+        expect(all[2].categoryId, 1);
+      });
+
+      test('케이스3: 여러 블록 걸치는 범위 → 양쪽 trim + 중간 삭제', () async {
+        final store = TimeBlockStore();
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('categories',
+            {'name': 'Cat2', 'colorHex': '#FFFFFF', 'isPreset': 0});
+        await db.insert('categories',
+            {'name': 'Cat3', 'colorHex': '#AAAAAA', 'isPreset': 0});
+
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 20, categoryId: 1,
+        ));
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 20, endMinute: 40, categoryId: 2,
+        ));
+
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 10, endMinute: 30, categoryId: 3,
+        ));
+
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 3);
+        expect(all[0].startMinute, 0);
+        expect(all[0].endMinute, 10);
+        expect(all[0].categoryId, 1);
+        expect(all[1].startMinute, 10);
+        expect(all[1].endMinute, 30);
+        expect(all[1].categoryId, 3);
+        expect(all[2].startMinute, 30);
+        expect(all[2].endMinute, 40);
+        expect(all[2].categoryId, 2);
+      });
+
+      test('양쪽 인접 동일 카테고리 → 3개 병합', () async {
+        final store = TimeBlockStore();
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+        ));
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 20, endMinute: 30, categoryId: 1,
+        ));
+
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 1,
+        ));
+
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 1);
+        expect(all.first.startMinute, 0);
+        expect(all.first.endMinute, 30);
+        expect(all.first.categoryId, 1);
+      });
+
+      test('기존 블록 전체 덮는 범위로 재할당', () async {
+        final store = TimeBlockStore();
+        final db = await DatabaseHelper.instance.database;
+        await db.insert('categories',
+            {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
+
+        await store.insert(const TimeBlock(
+          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 1,
+        ));
+
+        await store.replaceRange(const TimeBlock(
+          date: '2026-05-27', startMinute: 0, endMinute: 30, categoryId: 2,
+        ));
+
+        final all = await store.fetchByDate('2026-05-27');
+        expect(all.length, 1);
+        expect(all.first.startMinute, 0);
+        expect(all.first.endMinute, 30);
+        expect(all.first.categoryId, 2);
+      });
+    });
+
     test('watchByDate emits current snapshot immediately', () async {
       final store = TimeBlockStore();
       await store.insert(

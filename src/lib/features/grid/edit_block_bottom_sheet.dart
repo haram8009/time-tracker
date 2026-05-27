@@ -4,6 +4,7 @@ import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
 import '../../core/models/time_block.dart';
 import '../../core/utils/time_utils.dart';
+import 'grid_screen_view_model.dart';
 
 Future<void> showEditBlockBottomSheet(
   BuildContext context,
@@ -114,7 +115,9 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
                   final color = hexToColor(c.colorHex);
                   return InkWell(
                     onTap: () async {
-                      await widget.ref.read(timeBlockStoreProvider).update(
+                      await widget.ref
+                          .read(gridScreenViewModelProvider.notifier)
+                          .saveBlock(
                             widget.block.copyWith(categoryId: c.id),
                           );
                       if (context.mounted) Navigator.of(context).pop();

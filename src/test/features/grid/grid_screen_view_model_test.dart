@@ -29,6 +29,9 @@ class _FakeStore extends TimeBlockStore {
   Future<TimeBlock> mergeOrInsert(TimeBlock block) async => insert(block);
 
   @override
+  Future<TimeBlock> replaceRange(TimeBlock block) async => insert(block);
+
+  @override
   Future<List<TimeBlock>> fetchByDate(String date) async =>
       storedBlocks.where((b) => b.date == date).toList();
 }
