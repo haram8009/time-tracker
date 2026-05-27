@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
@@ -24,10 +25,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   late final DragSelectionController _drag;
 
   bool _isDragging = false;
-  Offset? _pointerDownPosition;
   String _currentDateKey = '';
 
-  static const double _kDragThreshold = 8.0;
   static const double _kTimeLabelWidth = 48.0;
   static const double _kCellHeight = 32.0;
 
@@ -52,27 +51,19 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     return (rowIndex * 6 + colIndex).clamp(0, 143);
   }
 
-  void _handlePointerDown(PointerDownEvent e) {
-    if (e.localPosition.dx < _kTimeLabelWidth) return;
-    _pointerDownPosition = e.localPosition;
+  void _onLongPressStart(LongPressStartDetails details) {
+    if (details.localPosition.dx < _kTimeLabelWidth) return;
+    HapticFeedback.mediumImpact();
+    _drag.onDragStart(_positionToCellIndex(details.localPosition));
+    setState(() => _isDragging = true);
   }
 
-  void _handlePointerMove(PointerMoveEvent e) {
-    if (_pointerDownPosition == null) return;
-    if (!_isDragging) {
-      final dy = (e.localPosition.dy - _pointerDownPosition!.dy).abs();
-      if (dy > _kDragThreshold) {
-        _drag.onDragStart(_positionToCellIndex(_pointerDownPosition!));
-        setState(() => _isDragging = true);
-      }
-    }
-    if (_isDragging) {
-      _drag.onDragUpdate(_positionToCellIndex(e.localPosition));
-    }
+  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (!_isDragging) return;
+    _drag.onDragUpdate(_positionToCellIndex(details.localPosition));
   }
 
-  void _handlePointerUp(PointerUpEvent e) {
-    _pointerDownPosition = null;
+  void _onLongPressEnd(LongPressEndDetails details) {
     if (!_isDragging) return;
     _drag.onDragEnd();
     setState(() => _isDragging = false);
@@ -88,8 +79,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     }
   }
 
-  void _handlePointerCancel(PointerCancelEvent e) {
-    _pointerDownPosition = null;
+  void _onLongPressCancel() {
     if (_isDragging) {
       _drag.onDragCancel();
       setState(() => _isDragging = false);
@@ -223,11 +213,12 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                 photos: photosAsync.valueOrNull ?? const [],
                 selectedIndices: _drag.selectedIndices,
               );
-              return Listener(
-                onPointerDown: _handlePointerDown,
-                onPointerMove: _handlePointerMove,
-                onPointerUp: _handlePointerUp,
-                onPointerCancel: _handlePointerCancel,
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onLongPressStart: _onLongPressStart,
+                onLongPressMoveUpdate: _onLongPressMoveUpdate,
+                onLongPressEnd: _onLongPressEnd,
+                onLongPressCancel: _onLongPressCancel,
                 child: ListView.builder(
                   controller: _scrollController,
                   itemCount: 24,
