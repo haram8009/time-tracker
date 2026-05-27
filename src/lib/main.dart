@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/notifications/notification_scheduler.dart';
 import 'features/grid/grid_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initNotifications();
   runApp(const ProviderScope(child: TimeTrackerApp()));
 }
 

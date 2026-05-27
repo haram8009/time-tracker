@@ -10,6 +10,9 @@ import 'edit_block_bottom_sheet.dart';
 import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
 import 'widgets/grid_cell.dart';
+import '../settings/settings_screen.dart';
+import '../../core/notifications/notification_scheduler.dart';
+import '../../core/services/settings_service.dart';
 
 class GridScreen extends ConsumerStatefulWidget {
   const GridScreen({super.key});
@@ -132,55 +135,72 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               _drag.clearSelection();
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '설정',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
         ],
         centerTitle: true,
       ),
       body: blocksAsync.when(
-        data: (dbBlocks) => categoriesAsync.when(
-          data: (categories) {
-            final photosAsync = ref.watch(photosForDateProvider(selectedDate));
-            final cells = GridViewModel.compute(
-              blocks: dbBlocks,
-              categories: categories,
-              photos: photosAsync.valueOrNull ?? const [],
-              selectedIndices: _drag.selectedIndices,
+        data: (dbBlocks) {
+          if (_isToday(selectedDate)) {
+            final notifSettings = ref.read(settingsServiceProvider);
+            scheduleSmartNotification(
+              todayBlocks: dbBlocks,
+              settings: notifSettings,
             );
-
-            return ListView.builder(
-              controller: _scrollController,
-              itemCount: 144,
-              itemExtent: 32,
-              itemBuilder: (context, index) => GridCell(
-                key: ValueKey(index),
-                index: index,
-                state: cells[index],
-                onTap: () {
-                  final existing = vm.blockAtIndex(index, dbBlocks);
-                  if (existing != null) {
-                    _drag.clearSelection();
-                    showEditBlockBottomSheet(
-                        context, ref, existing, categories);
-                  } else {
-                    _drag.onDragStart(index);
-                    _drag.onDragEnd();
-                    final sel = _drag.selection;
-                    if (sel != null) {
-                      showCategoryBottomSheet(
-                        context,
-                        ref,
-                        dateKey(selectedDate),
-                        sel.startMinute,
-                        sel.endMinute,
-                      ).then((_) => _drag.clearSelection());
+          }
+          return categoriesAsync.when(
+            data: (categories) {
+              final photosAsync =
+                  ref.watch(photosForDateProvider(selectedDate));
+              final cells = GridViewModel.compute(
+                blocks: dbBlocks,
+                categories: categories,
+                photos: photosAsync.valueOrNull ?? const [],
+                selectedIndices: _drag.selectedIndices,
+              );
+              return ListView.builder(
+                controller: _scrollController,
+                itemCount: 144,
+                itemExtent: 32,
+                itemBuilder: (context, index) => GridCell(
+                  key: ValueKey(index),
+                  index: index,
+                  state: cells[index],
+                  onTap: () {
+                    final existing = vm.blockAtIndex(index, dbBlocks);
+                    if (existing != null) {
+                      _drag.clearSelection();
+                      showEditBlockBottomSheet(
+                          context, ref, existing, categories);
+                    } else {
+                      _drag.onDragStart(index);
+                      _drag.onDragEnd();
+                      final sel = _drag.selection;
+                      if (sel != null) {
+                        showCategoryBottomSheet(
+                          context,
+                          ref,
+                          dateKey(selectedDate),
+                          sel.startMinute,
+                          sel.endMinute,
+                        ).then((_) => _drag.clearSelection());
+                      }
                     }
-                  }
-                },
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('오류: $e')),
-        ),
+                  },
+                ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('오류: $e')),
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('오류: $e')),
       ),
