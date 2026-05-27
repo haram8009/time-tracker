@@ -24,14 +24,16 @@ const _presets = [
 // ---------------------------------------------------------------------------
 
 class CategoryStore {
+  CategoryStore({this._seedCategories});
+
+  final List<Category>? _seedCategories;
   final _controller = StreamController<List<Category>>.broadcast();
 
   Future<Database> get _db => DatabaseHelper.instance.database;
 
-  // ── Seeding ──────────────────────────────────────────────────────────────
+  late final Future<void> _ready = _doSeedIfNeeded();
 
-  /// Seeds preset categories on first launch (only when no preset rows exist).
-  Future<void> seedIfNeeded() async {
+  Future<void> _doSeedIfNeeded() async {
     final db = await _db;
     final rows = await db.query(
       'categories',
@@ -40,17 +42,23 @@ class CategoryStore {
       limit: 1,
     );
     if (rows.isEmpty) {
+      final seeds = _seedCategories ?? _presets;
       final batch = db.batch();
-      for (final preset in _presets) {
+      for (final preset in seeds) {
         batch.insert('categories', preset.toMap());
       }
       await batch.commit(noResult: true);
     }
   }
 
+  // ── Seeding ──────────────────────────────────────────────────────────────
+
+  Future<void> seedIfNeeded() => _ready;
+
   // ── Read ─────────────────────────────────────────────────────────────────
 
   Future<List<Category>> fetchAll() async {
+    await _ready;
     final db = await _db;
     final rows = await db.query('categories', orderBy: 'id ASC');
     return rows.map(Category.fromMap).toList();

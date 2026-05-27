@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/db/category_store.dart';
 import '../../core/db/database_helper.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/time_block.dart';
@@ -36,7 +35,6 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
 
   Future<void> _init() async {
     await DatabaseHelper.instance.database;
-    await _ref.read(categoryStoreProvider).seedIfNeeded();
     state = state.copyWith(dbReady: true);
   }
 
