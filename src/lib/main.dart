@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,15 +65,18 @@ class _RootShellState extends State<_RootShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.grid_view), label: '기록'),
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: '분석'),
-          NavigationDestination(icon: Icon(Icons.settings), label: '설정'),
+      bottomNavigationBar: CupertinoTabBar(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
+        activeColor: isDark ? Colors.white : Colors.black,
+        inactiveColor: const Color(0xFFC7C7CC),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: '기록'),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '분석'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
       ),
     );
