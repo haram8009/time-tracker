@@ -187,4 +187,35 @@ void main() {
       expect(stats.first.totalMinutes, 60);
     });
   });
+
+  group('RetiredCategory 렌더링', () {
+    const retiredCat = Category(
+      id: 99,
+      name: '퇴직카테고리',
+      colorHex: '#123456',
+      isHidden: true,
+    );
+
+    test('computeStats — RetiredCategory 블록 포함', () {
+      final stats = AnalyticsEngine.computeStats(
+        [block(start: 0, end: 60, categoryId: 99)],
+        [retiredCat],
+      );
+      expect(stats.length, 1);
+      expect(stats.first.category, retiredCat);
+      expect(stats.first.totalMinutes, 60);
+    });
+
+    test('computeHeatmap — RetiredCategory dominantCategory 반환', () {
+      final matrix = AnalyticsEngine.computeHeatmap(
+        blocks: [
+          block(start: 0, end: 60, categoryId: 99, date: '2026-05-25'),
+        ],
+        categories: [retiredCat],
+      );
+      // 2026-05-25 = Monday = weekday index 0, hour 0
+      expect(matrix[0][0].dominantCategory, retiredCat);
+      expect(matrix[0][0].totalMinutes, 60);
+    });
+  });
 }

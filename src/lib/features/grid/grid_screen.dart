@@ -153,7 +153,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     final blocksAsync = ref.watch(
       timeBlocksStreamProvider(dateKey(selectedDate)),
     );
-    final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     final d = selectedDate;

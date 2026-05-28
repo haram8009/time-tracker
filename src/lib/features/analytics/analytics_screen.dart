@@ -91,7 +91,7 @@ class _PeriodView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final range = AnalyticsViewModel.dateRangeFor(period);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
-    final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
     return blocksAsync.when(
       data: (blocks) => categoriesAsync.when(
@@ -190,7 +190,7 @@ class _HeatmapView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
-    final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final categoriesAsync = ref.watch(categoriesAllStreamProvider);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
 
     return blocksAsync.when(

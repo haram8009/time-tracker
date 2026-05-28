@@ -32,6 +32,7 @@ class CategoryStore {
   final List<Category>? _seedCategories;
   final PreferencesPort? _prefs;
   final _controller = StreamController<List<Category>>.broadcast();
+  final _allController = StreamController<List<Category>>.broadcast();
 
   Future<Database> get _db => DatabaseHelper.instance.database;
 
@@ -85,6 +86,13 @@ class CategoryStore {
       if (!_controller.isClosed) _controller.add(list);
     });
     return _controller.stream;
+  }
+
+  Stream<List<Category>> watchAllIncludingRetired() {
+    fetchAllIncludingRetired().then((list) {
+      if (!_allController.isClosed) _allController.add(list);
+    });
+    return _allController.stream;
   }
 
   // ── Write ────────────────────────────────────────────────────────────────
@@ -155,10 +163,13 @@ class CategoryStore {
   Future<void> _notify() async {
     final list = await fetchAll();
     if (!_controller.isClosed) _controller.add(list);
+    final allList = await fetchAllIncludingRetired();
+    if (!_allController.isClosed) _allController.add(allList);
   }
 
   void dispose() {
     _controller.close();
+    _allController.close();
   }
 }
 
@@ -173,7 +184,12 @@ final categoryStoreProvider = Provider<CategoryStore>((ref) {
   return store;
 });
 
-/// Reactive stream of all categories.
+/// Reactive stream of visible categories (isHidden=0).
 final categoriesStreamProvider = StreamProvider<List<Category>>((ref) {
   return ref.watch(categoryStoreProvider).watchAll();
+});
+
+/// Reactive stream of all categories including RetiredCategories.
+final categoriesAllStreamProvider = StreamProvider<List<Category>>((ref) {
+  return ref.watch(categoryStoreProvider).watchAllIncludingRetired();
 });

@@ -150,5 +150,28 @@ void main() {
         expect(GridViewModel.minuteToIndex(GridViewModel.indexToMinute(i)), i);
       }
     });
+
+    test('RetiredCategory(isHidden=true) 블록 → 색상 정상 표시', () {
+      const retiredCat = Category(
+        id: 3,
+        name: '퇴직카테고리',
+        colorHex: '#AABBCC',
+        isHidden: true,
+      );
+      final cells = GridViewModel.compute(
+        blocks: [
+          const TimeBlock(
+            date: '2026-05-27',
+            startMinute: 0,
+            endMinute: 10,
+            categoryId: 3,
+          )
+        ],
+        categories: [retiredCat],
+        photos: [],
+        selectedIndices: {},
+      );
+      expect(cells[0].categoryColor, const Color(0xFFAABBCC));
+    });
   });
 }
