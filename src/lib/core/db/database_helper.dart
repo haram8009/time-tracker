@@ -19,9 +19,18 @@ class DatabaseHelper {
 
     return openDatabase(
       fullPath,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE categories ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -30,7 +39,8 @@ class DatabaseHelper {
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
         name     TEXT    NOT NULL,
         colorHex TEXT    NOT NULL,
-        isPreset INTEGER NOT NULL DEFAULT 0
+        isPreset INTEGER NOT NULL DEFAULT 0,
+        isHidden INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
