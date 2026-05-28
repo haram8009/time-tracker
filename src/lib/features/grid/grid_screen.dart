@@ -28,6 +28,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
   static const double _kTimeLabelWidth = 48.0;
   static const double _kCellHeight = 32.0;
+  static const double _kExpandedHeight = 100.0;
 
   @override
   void initState() {
@@ -93,7 +94,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     final idx = GridViewModel.minuteToIndex(now.hour * 60 + now.minute);
     final rowIndex = idx ~/ 6;
     final screenH = MediaQuery.of(context).size.height;
-    final topPad = MediaQuery.of(context).padding.top + kToolbarHeight;
+    final topPad = MediaQuery.of(context).padding.top + 56;
     final offset = (rowIndex * _kCellHeight - (screenH - topPad) / 2).clamp(
       0.0,
       double.infinity,
@@ -161,140 +162,178 @@ class _GridScreenState extends ConsumerState<GridScreen> {
         '${d.year}년 ${d.month}월 ${d.day}일 (${days[d.weekday - 1]})';
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left),
-          tooltip: '이전 날',
-          onPressed: () {
-            vm.goToPreviousDay();
-            _drag.clearSelection();
-          },
-        ),
-        title: Text(
-          dateLabel,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          if (!_isToday(selectedDate))
-            TextButton(
-              onPressed: () {
-                vm.goToToday();
-                _drag.clearSelection();
-              },
-              child: const Text('오늘', style: TextStyle(fontSize: 14)),
+      body: CustomScrollView(
+        controller: _scrollController,
+        physics: _isDragging ? const NeverScrollableScrollPhysics() : null,
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: _kExpandedHeight,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            automaticallyImplyLeading: false,
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        tooltip: '이전 날',
+                        onPressed: () {
+                          vm.goToPreviousDay();
+                          _drag.clearSelection();
+                        },
+                      ),
+                      Expanded(
+                        child: Text(
+                          dateLabel,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      if (!_isToday(selectedDate))
+                        TextButton(
+                          onPressed: () {
+                            vm.goToToday();
+                            _drag.clearSelection();
+                          },
+                          child: const Text(
+                            '오늘',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 48),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        tooltip: '다음 날',
+                        onPressed: () {
+                          vm.goToNextDay();
+                          _drag.clearSelection();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: '다음 날',
-            onPressed: () {
-              vm.goToNextDay();
-              _drag.clearSelection();
-            },
+            title: Text(
+              dateLabel,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            centerTitle: true,
           ),
-        ],
-        centerTitle: true,
-      ),
-      body: blocksAsync.when(
-        data: (dbBlocks) {
-          return categoriesAsync.when(
-            data: (categories) {
-              final photosAsync = ref.watch(
-                photosForDateProvider(selectedDate),
-              );
-              _currentDateKey = dateKey(selectedDate);
-              final cells = GridViewModel.compute(
-                blocks: dbBlocks,
-                categories: categories,
-                photos: photosAsync.valueOrNull ?? const [],
-                selectedIndices: _drag.selectedIndices,
-              );
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onLongPressStart: _onLongPressStart,
-                onLongPressMoveUpdate: _onLongPressMoveUpdate,
-                onLongPressEnd: _onLongPressEnd,
-                onLongPressCancel: _onLongPressCancel,
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: 24,
-                  itemExtent: _kCellHeight,
-                  physics: _isDragging
-                      ? const NeverScrollableScrollPhysics()
-                      : null,
-                  itemBuilder: (context, rowIndex) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: _kTimeLabelWidth,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: Text(
-                                '${rowIndex.toString().padLeft(2, '0')}:00',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey.shade600,
-                                  height: 1,
+          SliverFillRemaining(
+            child: blocksAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('오류: $e')),
+              data: (dbBlocks) => categoriesAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('오류: $e')),
+                data: (categories) {
+                  final photosAsync = ref.watch(
+                    photosForDateProvider(selectedDate),
+                  );
+                  _currentDateKey = dateKey(selectedDate);
+                  final cells = GridViewModel.compute(
+                    blocks: dbBlocks,
+                    categories: categories,
+                    photos: photosAsync.valueOrNull ?? const [],
+                    selectedIndices: _drag.selectedIndices,
+                  );
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPressStart: _onLongPressStart,
+                    onLongPressMoveUpdate: _onLongPressMoveUpdate,
+                    onLongPressEnd: _onLongPressEnd,
+                    onLongPressCancel: _onLongPressCancel,
+                    child: Column(
+                      children: List.generate(24, (rowIndex) {
+                        return SizedBox(
+                          height: _kCellHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: _kTimeLabelWidth,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: Text(
+                                      '${rowIndex.toString().padLeft(2, '0')}:00',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                        height: 1,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              ...List.generate(6, (col) {
+                                final cellIndex = rowIndex * 6 + col;
+                                return Expanded(
+                                  child: GridCell(
+                                    key: ValueKey(cellIndex),
+                                    index: cellIndex,
+                                    state: cells[cellIndex],
+                                    onTap: _isDragging
+                                        ? null
+                                        : () {
+                                            final existing = vm.blockAtIndex(
+                                              cellIndex,
+                                              dbBlocks,
+                                            );
+                                            if (existing != null) {
+                                              _drag.clearSelection();
+                                              showEditBlockBottomSheet(
+                                                context,
+                                                ref,
+                                                existing,
+                                                categories,
+                                              );
+                                            } else {
+                                              _drag.onDragStart(cellIndex);
+                                              _drag.onDragEnd();
+                                              final sel = _drag.selection;
+                                              if (sel != null) {
+                                                showCategoryBottomSheet(
+                                                  context,
+                                                  ref,
+                                                  dateKey(selectedDate),
+                                                  sel.startMinute,
+                                                  sel.endMinute,
+                                                ).then(
+                                                  (_) =>
+                                                      _drag.clearSelection(),
+                                                );
+                                              }
+                                            }
+                                          },
+                                  ),
+                                );
+                              }),
+                            ],
                           ),
-                        ),
-                        ...List.generate(6, (col) {
-                          final cellIndex = rowIndex * 6 + col;
-                          return Expanded(
-                            child: GridCell(
-                              key: ValueKey(cellIndex),
-                              index: cellIndex,
-                              state: cells[cellIndex],
-                              onTap: _isDragging
-                                  ? null
-                                  : () {
-                                      final existing = vm.blockAtIndex(
-                                        cellIndex,
-                                        dbBlocks,
-                                      );
-                                      if (existing != null) {
-                                        _drag.clearSelection();
-                                        showEditBlockBottomSheet(
-                                          context,
-                                          ref,
-                                          existing,
-                                          categories,
-                                        );
-                                      } else {
-                                        _drag.onDragStart(cellIndex);
-                                        _drag.onDragEnd();
-                                        final sel = _drag.selection;
-                                        if (sel != null) {
-                                          showCategoryBottomSheet(
-                                            context,
-                                            ref,
-                                            dateKey(selectedDate),
-                                            sel.startMinute,
-                                            sel.endMinute,
-                                          ).then((_) => _drag.clearSelection());
-                                        }
-                                      }
-                                    },
-                            ),
-                          );
-                        }),
-                      ],
-                    );
-                  },
-                ),
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('오류: $e')),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('오류: $e')),
+                        );
+                      }),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
