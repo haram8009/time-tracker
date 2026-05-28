@@ -9,6 +9,30 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/category_store.dart';
 import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/models/category.dart';
+import 'package:time_tracker/core/services/preferences_port.dart';
+
+// ---------------------------------------------------------------------------
+// Fake PreferencesPort for testing
+// ---------------------------------------------------------------------------
+
+class _FakePrefs implements PreferencesPort {
+  final _bools = <String, bool>{};
+  final _ints = <String, int>{};
+
+  @override
+  bool? getBool(String key) => _bools[key];
+
+  @override
+  int? getInt(String key) => _ints[key];
+
+  @override
+  Future<void> setBool(String key, bool value) async => _bools[key] = value;
+
+  @override
+  Future<void> setInt(String key, int value) async => _ints[key] = value;
+}
+
+// ---------------------------------------------------------------------------
 
 void main() {
   setUpAll(() {
@@ -93,6 +117,21 @@ void main() {
       expect(byName['이동'], '#26C6DA');
       expect(byName['여가'], '#AB47BC');
     });
+
+    test('prefs flag prevents re-seeding on subsequent launches', () async {
+      final prefs = _FakePrefs();
+
+      // First store instance: seeds and sets flag.
+      final store1 = CategoryStore(seedCategories: const [], prefs: prefs);
+      await store1.seedIfNeeded();
+      expect((await store1.fetchAll()), isEmpty);
+
+      // Simulate re-launch: new store with same prefs (flag already set).
+      // Even if DB is empty, seeding is skipped.
+      final store2 = CategoryStore(prefs: prefs);
+      final all = await store2.fetchAll();
+      expect(all, isEmpty);
+    });
   });
 
   group('CategoryStore – custom seed injection', () {
@@ -164,7 +203,20 @@ void main() {
       expect(found.colorHex, '#EEEEEE');
     });
 
-    test('delete removes the category', () async {
+    test('update works on preset categories', () async {
+      final store = CategoryStore();
+      await store.seedIfNeeded();
+
+      final preset = (await store.fetchAll()).first;
+      await store.update(preset.copyWith(name: '수정된이름', colorHex: '#000000'));
+
+      final found = (await store.fetchAll()).firstWhere((c) => c.id == preset.id);
+      expect(found.name, '수정된이름');
+      expect(found.colorHex, '#000000');
+      expect(found.isPreset, isTrue);
+    });
+
+    test('delete soft-hides category — not visible in fetchAll', () async {
       final store = CategoryStore();
       final inserted = await store.insert(
         const Category(name: '임시', colorHex: '#123456'),
@@ -174,6 +226,18 @@ void main() {
 
       final all = await store.fetchAll();
       expect(all.any((c) => c.id == inserted.id), isFalse);
+    });
+
+    test('delete soft-hides preset — not visible in fetchAll', () async {
+      final store = CategoryStore();
+      await store.seedIfNeeded();
+
+      final preset = (await store.fetchAll()).first;
+      await store.delete(preset.id!);
+
+      final all = await store.fetchAll();
+      expect(all.any((c) => c.id == preset.id), isFalse);
+      expect(all.length, 5);
     });
 
     test('watchAll emits current snapshot immediately', () async {
@@ -202,6 +266,42 @@ void main() {
 
       await sub.cancel();
       store.dispose();
+    });
+  });
+
+  group('CategoryStore – restoreDefaults', () {
+    test('restoreDefaults makes hidden presets visible again', () async {
+      final store = CategoryStore();
+      await store.seedIfNeeded();
+
+      final presets = await store.fetchAll();
+      for (final p in presets) {
+        await store.delete(p.id!);
+      }
+      expect(await store.fetchAll(), isEmpty);
+
+      await store.restoreDefaults();
+
+      final restored = await store.fetchAll();
+      expect(restored.length, 6);
+      expect(restored.every((c) => c.isPreset), isTrue);
+    });
+
+    test('restoreDefaults does not affect user-defined hidden categories',
+        () async {
+      final store = CategoryStore();
+      await store.seedIfNeeded();
+
+      final user = await store.insert(
+        const Category(name: '사용자카테고리', colorHex: '#ABCDEF'),
+      );
+      await store.delete(user.id!);
+
+      await store.restoreDefaults();
+
+      final all = await store.fetchAll();
+      expect(all.any((c) => c.id == user.id), isFalse);
+      expect(all.length, 6);
     });
   });
 }
