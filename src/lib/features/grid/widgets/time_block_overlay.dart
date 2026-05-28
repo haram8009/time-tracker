@@ -36,36 +36,50 @@ class TimeBlockOverlay extends StatelessWidget {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth - timeLabelWidth;
         final positioned = _layoutBlocks(blocks, availableWidth);
+        final cellSlotWidth = availableWidth / 6;
+
+        final segments = <Widget>[];
+        for (final item in positioned) {
+          final block = item.block;
+          final color = colorMap[block.categoryId] ?? Colors.grey;
+          final label = nameMap[block.categoryId] ?? '';
+
+          final startCellIdx = block.startMinute ~/ 10;
+          final endCellIdx = (block.endMinute - 1) ~/ 10;
+          final startRow = startCellIdx ~/ 6;
+          final endRow = endCellIdx ~/ 6;
+
+          for (int row = startRow; row <= endRow; row++) {
+            final rowStartCell = row * 6;
+            final firstCol = (startCellIdx - rowStartCell).clamp(0, 5);
+            final lastCol = (endCellIdx - rowStartCell).clamp(0, 5);
+            final numCols = lastCol - firstCol + 1;
+
+            final top = row.toDouble() * cellHeight;
+            final segLeft = timeLabelWidth + firstCol * cellSlotWidth;
+            final segWidth = (numCols * cellSlotWidth - 2.0).clamp(0.0, double.infinity);
+            final isFirst = row == startRow;
+
+            segments.add(Positioned(
+              top: top,
+              left: segLeft,
+              width: segWidth,
+              height: cellHeight,
+              child: BlockRenderer(
+                style: style,
+                color: color,
+                label: isFirst ? label : '',
+                height: cellHeight,
+              ),
+            ));
+          }
+        }
 
         return IgnorePointer(
           child: SizedBox(
             width: constraints.maxWidth,
             height: 24 * cellHeight,
-            child: Stack(
-              children: positioned.map((item) {
-                final block = item.block;
-                final color = colorMap[block.categoryId] ?? Colors.grey;
-                final label = nameMap[block.categoryId] ?? '';
-                final top = (block.startMinute / 60.0) * cellHeight;
-                final height =
-                    ((block.endMinute - block.startMinute) / 60.0) * cellHeight;
-                final left = timeLabelWidth + item.xOffset;
-                final width = item.columnWidth - 2.0;
-
-                return Positioned(
-                  top: top,
-                  left: left,
-                  width: width.clamp(0.0, double.infinity),
-                  height: height.clamp(0.0, double.infinity),
-                  child: BlockRenderer(
-                    style: style,
-                    color: color,
-                    label: label,
-                    height: height,
-                  ),
-                );
-              }).toList(),
-            ),
+            child: Stack(children: segments),
           ),
         );
       },
