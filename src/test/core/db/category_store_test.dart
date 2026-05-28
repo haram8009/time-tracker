@@ -30,7 +30,8 @@ void main() {
               id       INTEGER PRIMARY KEY AUTOINCREMENT,
               name     TEXT    NOT NULL,
               colorHex TEXT    NOT NULL,
-              isPreset INTEGER NOT NULL DEFAULT 0
+              isPreset INTEGER NOT NULL DEFAULT 0,
+              isHidden INTEGER NOT NULL DEFAULT 0
             )
           ''');
           await db.execute('''
