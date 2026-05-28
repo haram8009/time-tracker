@@ -55,6 +55,12 @@
 - Caches thumbnail bytes in memory per session to avoid repeated I/O
 - Plugin: `photo_manager`
 
+**Grid Cell Dimensions**
+- Cell height: 48px (≈1.2:1 aspect ratio with 6-column layout — visually balanced, touch-friendly)
+- Time label column: 48px wide
+- 6 data columns: `(screenWidth - 48) / 6` each
+- Total grid height: `24 rows × 48px = 1152px`
+
 **4. GridViewModel**
 - Computes which cells are filled, their colors, and which cells have photo thumbnails
 - Input: time blocks for the day + photo assets for the day

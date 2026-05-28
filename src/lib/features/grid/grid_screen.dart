@@ -29,8 +29,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   String _currentDateKey = '';
 
   static const double _kTimeLabelWidth = 48.0;
-  static const double _kCellHeight = 32.0;
-  static const double _kExpandedHeight = 100.0;
+  static const double _kCellHeight = 48.0;
+  static const double _kExpandedHeight = 192.0;
 
   @override
   void initState() {
@@ -41,10 +41,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   }
 
   int _positionToCellIndex(Offset localPos) {
-    final scrollOffset = _scrollController.hasClients
-        ? _scrollController.offset
-        : 0.0;
-    final rowIndex = ((localPos.dy + scrollOffset) / _kCellHeight)
+    final rowIndex = (localPos.dy / _kCellHeight)
         .floor()
         .clamp(0, 23);
     final availableWidth = MediaQuery.of(context).size.width - _kTimeLabelWidth;
@@ -176,63 +173,69 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             automaticallyImplyLeading: false,
+            leading: IconButton(
+              icon: const Icon(Icons.chevron_left),
+              tooltip: '이전 날',
+              onPressed: () {
+                vm.goToPreviousDay();
+                _drag.clearSelection();
+              },
+            ),
+            actions: [
+              if (!_isToday(selectedDate))
+                TextButton(
+                  onPressed: () {
+                    vm.goToToday();
+                    _drag.clearSelection();
+                  },
+                  child: const Text('오늘', style: TextStyle(fontSize: 14)),
+                ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                tooltip: '다음 날',
+                onPressed: () {
+                  vm.goToNextDay();
+                  _drag.clearSelection();
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               collapseMode: CollapseMode.pin,
               background: SafeArea(
+                bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  padding: const EdgeInsets.only(
+                    top: kToolbarHeight,
+                    left: 16,
+                    right: 16,
+                    bottom: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        tooltip: '이전 날',
-                        onPressed: () {
-                          vm.goToPreviousDay();
-                          _drag.clearSelection();
-                        },
-                      ),
-                      Expanded(
-                        child: Text(
-                          dateLabel,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
+                      Text(
+                        _isToday(selectedDate)
+                            ? '오늘'
+                            : '${d.month}월 ${d.day}일 (${days[d.weekday - 1]})',
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      if (!_isToday(selectedDate))
-                        TextButton(
-                          onPressed: () {
-                            vm.goToToday();
-                            _drag.clearSelection();
-                          },
-                          child: const Text(
-                            '오늘',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 48),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right),
-                        tooltip: '다음 날',
-                        onPressed: () {
-                          vm.goToNextDay();
-                          _drag.clearSelection();
-                        },
+                      const SizedBox(height: 2),
+                      Text(
+                        dateLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-            title: Text(
-              dateLabel,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-            centerTitle: true,
           ),
           SliverToBoxAdapter(
             child: blocksAsync.when(
