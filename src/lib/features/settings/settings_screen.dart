@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
+import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
 import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
@@ -161,6 +162,7 @@ class _CategoryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.read(categoryStoreProvider);
+    final blockStore = ref.read(timeBlockStoreProvider);
 
     return Column(
       children: [
@@ -184,7 +186,8 @@ class _CategoryList extends ConsumerWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  onPressed: () => _confirmDelete(context, store, cat),
+                  onPressed: () =>
+                      _confirmDelete(context, store, blockStore, cat),
                 ),
               ],
             ),
@@ -213,31 +216,63 @@ class _CategoryList extends ConsumerWidget {
   Future<void> _confirmDelete(
     BuildContext context,
     CategoryStore store,
+    TimeBlockStore blockStore,
     Category cat,
   ) async {
-    final confirmed = await showDialog<bool>(
+    if (cat.id == null) return;
+
+    final count = await blockStore.countByCategory(cat.id!);
+
+    if (!context.mounted) return;
+
+    final choice = await showDialog<_DeleteChoice>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('카테고리 삭제'),
-        content: Text('"${cat.name}" 카테고리를 삭제할까요?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('"${cat.name}"을(를) 삭제합니다.'),
+            if (count > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '이 카테고리로 기록된 시간 블록이 $count개 있습니다.',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('삭제', style: TextStyle(color: Colors.red)),
+            onPressed: () =>
+                Navigator.pop(ctx, _DeleteChoice.withRecords),
+            child: const Text(
+              '기록도 삭제',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _DeleteChoice.keepRecords),
+            child: const Text('기록 보존'),
           ),
         ],
       ),
     );
-    if (confirmed == true && cat.id != null) {
+
+    if (choice == _DeleteChoice.withRecords) {
+      await store.deleteWithRecords(cat.id!);
+    } else if (choice == _DeleteChoice.keepRecords) {
       await store.retire(cat.id!);
     }
   }
 }
+
+enum _DeleteChoice { withRecords, keepRecords }
 
 class _CategoryFormDialog extends StatefulWidget {
   final CategoryStore store;
