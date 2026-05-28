@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/notifications/notification_port.dart';
+import 'core/theme/app_theme.dart';
 import 'core/notifications/notification_scheduler.dart';
 import 'core/notifications/notification_settings.dart';
 import 'core/services/preferences_port.dart';
@@ -41,10 +42,9 @@ class TimeTrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Time Tracker',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
       home: const _RootShell(),
     );
   }
