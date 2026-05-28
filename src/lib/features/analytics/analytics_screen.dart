@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
+import '../../core/models/category.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/utils/time_utils.dart';
 import 'analytics_engine.dart';
@@ -263,16 +264,23 @@ class _HeatmapView extends ConsumerWidget {
                             final intensity = maxVal == 0 || cell.isEmpty
                                 ? 0.0
                                 : cell.totalMinutes / maxVal;
+                            final Color cellColor;
+                            if (cell.isEmpty || cell.dominantCategory == null) {
+                              cellColor = Colors.grey.shade100;
+                            } else {
+                              final base = hexToColor(cell.dominantCategory!.colorHex);
+                              cellColor = Color.lerp(
+                                base.withValues(alpha: 0.15),
+                                base,
+                                intensity,
+                              )!;
+                            }
                             return Container(
                               width: clampedCell,
                               height: clampedCell,
                               margin: const EdgeInsets.all(1),
                               decoration: BoxDecoration(
-                                color: Color.lerp(
-                                  Colors.indigo.shade50,
-                                  Colors.indigo.shade700,
-                                  intensity,
-                                ),
+                                color: cellColor,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             );
@@ -281,28 +289,39 @@ class _HeatmapView extends ConsumerWidget {
                       );
                     }),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('적음 ', style: TextStyle(fontSize: 11)),
-                        ...List.generate(5, (i) {
-                          return Container(
-                            width: 14,
-                            height: 14,
-                            margin: const EdgeInsets.symmetric(horizontal: 1),
-                            decoration: BoxDecoration(
-                              color: Color.lerp(
-                                Colors.indigo.shade50,
-                                Colors.indigo.shade700,
-                                i / 4,
+                    Builder(builder: (context) {
+                      final activeCategories = <int, Category>{};
+                      for (final row in matrix) {
+                        for (final cell in row) {
+                          final cat = cell.dominantCategory;
+                          if (cat != null && cat.id != null) {
+                            activeCategories[cat.id!] = cat;
+                          }
+                        }
+                      }
+                      if (activeCategories.isEmpty) return const SizedBox.shrink();
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: activeCategories.values.map((cat) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: BoxDecoration(
+                                  color: hexToColor(cat.colorHex),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
+                              Text(cat.name, style: const TextStyle(fontSize: 11)),
+                            ],
                           );
-                        }),
-                        const Text(' 많음', style: TextStyle(fontSize: 11)),
-                      ],
-                    ),
+                        }).toList(),
+                      );
+                    }),
                   ],
                 ),
               );
