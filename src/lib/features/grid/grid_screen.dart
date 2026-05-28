@@ -234,7 +234,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             ),
             centerTitle: true,
           ),
-          SliverFillRemaining(
+          SliverToBoxAdapter(
             child: blocksAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('오류: $e')),
@@ -253,7 +253,9 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                     photos: photosAsync.valueOrNull ?? const [],
                     selectedIndices: _drag.selectedIndices,
                   );
-                  return GestureDetector(
+                  return SizedBox(
+                    height: 24 * _kCellHeight,
+                    child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onLongPressStart: _onLongPressStart,
                     onLongPressMoveUpdate: _onLongPressMoveUpdate,
@@ -342,6 +344,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                       ),
                     ],
                   ),
+                    ),
                   );
                 },
               ),
