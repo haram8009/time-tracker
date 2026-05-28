@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,14 +28,15 @@ const _kSeedKey = 'categories_seeded';
 // ---------------------------------------------------------------------------
 
 class CategoryStore {
-  CategoryStore({this._seedCategories, this._prefs});
+  CategoryStore(this._db, {List<Category>? seedCategories, PreferencesPort? prefs})
+      : _seedCategories = seedCategories,
+        _prefs = prefs;
 
+  final Database _db;
   final List<Category>? _seedCategories;
   final PreferencesPort? _prefs;
   final _controller = StreamController<List<Category>>.broadcast();
   final _allController = StreamController<List<Category>>.broadcast();
-
-  Future<Database> get _db => DatabaseHelper.instance.database;
 
   late final Future<void> _ready = _doSeedIfNeeded();
 
@@ -42,11 +44,10 @@ class CategoryStore {
     // Skip if already seeded (first-install flag set).
     if (_prefs?.getBool(_kSeedKey) == true) return;
 
-    final db = await _db;
-    final rows = await db.query('categories', limit: 1);
+    final rows = await _db.query('categories', limit: 1);
     if (rows.isEmpty) {
       final seeds = _seedCategories ?? _presets;
-      final batch = db.batch();
+      final batch = _db.batch();
       for (final preset in seeds) {
         batch.insert('categories', preset.toMap());
       }
@@ -64,8 +65,7 @@ class CategoryStore {
 
   Future<List<Category>> fetchAll() async {
     await _ready;
-    final db = await _db;
-    final rows = await db.query(
+    final rows = await _db.query(
       'categories',
       where: 'isHidden = ?',
       whereArgs: [0],
@@ -76,8 +76,7 @@ class CategoryStore {
 
   Future<List<Category>> fetchAllIncludingRetired() async {
     await _ready;
-    final db = await _db;
-    final rows = await db.query('categories', orderBy: 'id ASC');
+    final rows = await _db.query('categories', orderBy: 'id ASC');
     return rows.map(Category.fromMap).toList();
   }
 
@@ -98,8 +97,7 @@ class CategoryStore {
   // ── Write ────────────────────────────────────────────────────────────────
 
   Future<Category> insert(Category category) async {
-    final db = await _db;
-    final id = await db.insert(
+    final id = await _db.insert(
       'categories',
       category.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -111,8 +109,7 @@ class CategoryStore {
 
   Future<void> update(Category category) async {
     assert(category.id != null, 'Cannot update a Category without an id');
-    final db = await _db;
-    await db.update(
+    await _db.update(
       'categories',
       category.toMap(),
       where: 'id = ?',
@@ -124,8 +121,7 @@ class CategoryStore {
   /// Soft-deletes a category — hides it from the selection list without
   /// removing the DB row (preserves TimeBlock references).
   Future<void> retire(int id) async {
-    final db = await _db;
-    await db.update(
+    await _db.update(
       'categories',
       {'isHidden': 1},
       where: 'id = ?',
@@ -136,8 +132,7 @@ class CategoryStore {
 
   /// Hard-deletes a category and all its TimeBlocks in a single transaction.
   Future<void> deleteWithRecords(int categoryId) async {
-    final db = await _db;
-    await db.transaction((txn) async {
+    await _db.transaction((txn) async {
       await txn.delete('time_blocks',
           where: 'categoryId = ?', whereArgs: [categoryId]);
       await txn.delete('categories',
@@ -148,8 +143,7 @@ class CategoryStore {
 
   /// Un-hides all preset categories.
   Future<void> restoreDefaults() async {
-    final db = await _db;
-    await db.update(
+    await _db.update(
       'categories',
       {'isHidden': 0},
       where: 'isPreset = ?',
@@ -178,8 +172,9 @@ class CategoryStore {
 // ---------------------------------------------------------------------------
 
 final categoryStoreProvider = Provider<CategoryStore>((ref) {
+  final db = ref.watch(databaseProvider);
   final prefs = ref.watch(sharedPrefsAdapterProvider);
-  final store = CategoryStore(prefs: prefs);
+  final store = CategoryStore(db, prefs: prefs);
   ref.onDispose(store.dispose);
   return store;
 });

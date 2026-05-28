@@ -7,7 +7,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/category_store.dart';
-import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/models/category.dart';
 import 'package:time_tracker/core/services/preferences_port.dart';
 
@@ -34,17 +33,9 @@ class _FakePrefs implements PreferencesPort {
 
 // ---------------------------------------------------------------------------
 
-void main() {
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  });
+late Database db;
 
-  tearDown(() => DatabaseHelper.resetForTesting());
-
-  setUp(() async {
-    await DatabaseHelper.resetForTesting();
-    final db = await databaseFactoryFfi.openDatabase(
+Future<Database> _openTestDb() => databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
         version: 1,
@@ -72,12 +63,22 @@ void main() {
         },
       ),
     );
-    DatabaseHelper.setDatabaseForTesting(db);
+
+void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
   });
+
+  setUp(() async {
+    db = await _openTestDb();
+  });
+
+  tearDown(() async => db.close());
 
   group('CategoryStore – preset seeding', () {
     test('seedIfNeeded inserts 6 preset categories on first run', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final all = await store.fetchAll();
@@ -87,7 +88,7 @@ void main() {
 
     test('seedIfNeeded is idempotent – calling twice does not duplicate presets',
         () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
       await store.seedIfNeeded();
 
@@ -96,7 +97,7 @@ void main() {
     });
 
     test('preset names match specification', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final names = (await store.fetchAll()).map((c) => c.name).toSet();
@@ -104,7 +105,7 @@ void main() {
     });
 
     test('preset color hex values match specification', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final byName = {
@@ -122,13 +123,13 @@ void main() {
       final prefs = _FakePrefs();
 
       // First store instance: seeds and sets flag.
-      final store1 = CategoryStore(seedCategories: const [], prefs: prefs);
+      final store1 = CategoryStore(db, seedCategories: const [], prefs: prefs);
       await store1.seedIfNeeded();
       expect((await store1.fetchAll()), isEmpty);
 
       // Simulate re-launch: new store with same prefs (flag already set).
       // Even if DB is empty, seeding is skipped.
-      final store2 = CategoryStore(prefs: prefs);
+      final store2 = CategoryStore(db, prefs: prefs);
       final all = await store2.fetchAll();
       expect(all, isEmpty);
     });
@@ -140,26 +141,26 @@ void main() {
         Category(name: '테스트A', colorHex: '#111111', isPreset: true),
         Category(name: '테스트B', colorHex: '#222222', isPreset: true),
       ];
-      final store = CategoryStore(seedCategories: custom);
+      final store = CategoryStore(db, seedCategories: custom);
       final all = await store.fetchAll();
       expect(all.length, 2);
       expect(all.map((c) => c.name).toList(), ['테스트A', '테스트B']);
     });
 
     test('empty seedCategories seeds nothing', () async {
-      final store = CategoryStore(seedCategories: const []);
+      final store = CategoryStore(db, seedCategories: const []);
       final all = await store.fetchAll();
       expect(all, isEmpty);
     });
 
     test('auto-init: fetchAll works without explicit seedIfNeeded()', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       final all = await store.fetchAll();
       expect(all.length, 6);
     });
 
     test('auto-init: watchAll emits without explicit seedIfNeeded()', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       final list = await store.watchAll().first;
       expect(list.length, 6);
       store.dispose();
@@ -168,7 +169,7 @@ void main() {
 
   group('CategoryStore – CRUD', () {
     test('insert adds a new category and returns it with an id', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       const category = Category(name: '독서', colorHex: '#FFFFFF');
 
       final inserted = await store.insert(category);
@@ -180,7 +181,7 @@ void main() {
     });
 
     test('fetchAll returns all categories including newly inserted', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
       await store.insert(const Category(name: '독서', colorHex: '#FFFFFF'));
 
@@ -189,7 +190,7 @@ void main() {
     });
 
     test('update modifies an existing category', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       final inserted = await store.insert(
         const Category(name: '독서', colorHex: '#FFFFFF'),
       );
@@ -204,7 +205,7 @@ void main() {
     });
 
     test('update works on preset categories', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final preset = (await store.fetchAll()).first;
@@ -217,7 +218,7 @@ void main() {
     });
 
     test('retire soft-hides category — not visible in fetchAll', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       final inserted = await store.insert(
         const Category(name: '임시', colorHex: '#123456'),
       );
@@ -229,7 +230,7 @@ void main() {
     });
 
     test('retire soft-hides preset — not visible in fetchAll', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final preset = (await store.fetchAll()).first;
@@ -241,7 +242,7 @@ void main() {
     });
 
     test('watchAll emits current snapshot immediately', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final stream = store.watchAll();
@@ -250,7 +251,7 @@ void main() {
     });
 
     test('retire soft-hides — fetchAllIncludingRetired still returns it', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       final inserted = await store.insert(
         const Category(name: '임시', colorHex: '#123456'),
       );
@@ -265,12 +266,11 @@ void main() {
     });
 
     test('deleteWithRecords removes category and its time_blocks', () async {
-      final store = CategoryStore(seedCategories: const []);
+      final store = CategoryStore(db, seedCategories: const []);
       final cat = await store.insert(
         const Category(name: '삭제대상', colorHex: '#ABCDEF'),
       );
 
-      final db = await DatabaseHelper.instance.database;
       await db.insert('time_blocks', {
         'date': '2026-01-01',
         'startMinute': 0,
@@ -297,7 +297,7 @@ void main() {
     });
 
     test('deleteWithRecords leaves other categories and blocks intact', () async {
-      final store = CategoryStore(seedCategories: const []);
+      final store = CategoryStore(db, seedCategories: const []);
       final cat1 = await store.insert(
         const Category(name: 'A', colorHex: '#111111'),
       );
@@ -305,7 +305,6 @@ void main() {
         const Category(name: 'B', colorHex: '#222222'),
       );
 
-      final db = await DatabaseHelper.instance.database;
       await db.insert('time_blocks', {
         'date': '2026-01-01',
         'startMinute': 0,
@@ -333,7 +332,7 @@ void main() {
     });
 
     test('watchAll emits updated list after insert', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final events = <List<Category>>[];
@@ -354,7 +353,7 @@ void main() {
 
   group('CategoryStore – restoreDefaults', () {
     test('restoreDefaults makes hidden presets visible again', () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final presets = await store.fetchAll();
@@ -372,7 +371,7 @@ void main() {
 
     test('restoreDefaults does not affect user-defined hidden categories',
         () async {
-      final store = CategoryStore();
+      final store = CategoryStore(db);
       await store.seedIfNeeded();
 
       final user = await store.insert(

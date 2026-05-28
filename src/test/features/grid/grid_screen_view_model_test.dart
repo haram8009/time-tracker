@@ -14,6 +14,8 @@ import 'package:time_tracker/features/grid/grid_screen_view_model.dart';
 // ── Fakes ────────────────────────────────────────────────────────────────────
 
 class _FakeStore extends TimeBlockStore {
+  _FakeStore(super.db);
+
   final List<TimeBlock> storedBlocks = [];
   final List<TimeBlock> insertedBlocks = [];
 
@@ -69,6 +71,8 @@ class _FakePrefs implements PreferencesPort {
 }
 
 class _FakeCategoryStore extends CategoryStore {
+  _FakeCategoryStore(super.db);
+
   @override
   Future<void> seedIfNeeded() async {}
 }
@@ -89,6 +93,8 @@ TimeBlock _block({required String date}) => TimeBlock(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+late Database db;
+
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -96,8 +102,7 @@ void main() {
   });
 
   setUp(() async {
-    await DatabaseHelper.resetForTesting();
-    final db = await databaseFactoryFfi.openDatabase(
+    db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
         version: 1,
@@ -123,10 +128,9 @@ void main() {
         },
       ),
     );
-    DatabaseHelper.setDatabaseForTesting(db);
   });
 
-  tearDown(() => DatabaseHelper.resetForTesting());
+  tearDown(() async => db.close());
 
   group('GridScreenViewModel.saveBlock', () {
     late _FakeStore store;
@@ -134,16 +138,17 @@ void main() {
     late ProviderContainer container;
 
     setUp(() {
-      store = _FakeStore();
+      store = _FakeStore(db);
       port = _FakeNotificationPort();
 
       container = ProviderContainer(overrides: [
+        databaseProvider.overrideWithValue(db),
         timeBlockStoreProvider.overrideWithValue(store),
         notificationPortProvider.overrideWithValue(port),
         settingsServiceProvider.overrideWith(
           (ref) => SettingsService(_FakePrefs(), port),
         ),
-        categoryStoreProvider.overrideWithValue(_FakeCategoryStore()),
+        categoryStoreProvider.overrideWithValue(_FakeCategoryStore(db)),
       ]);
     });
 

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/db/database_helper.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/theme/app_theme.dart';
 import 'core/notifications/notification_scheduler.dart';
@@ -14,6 +15,7 @@ import 'features/settings/settings_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  final db = await openAppDatabase();
   final rawPrefs = await SharedPreferences.getInstance();
   final prefsAdapter = SharedPrefsAdapter(rawPrefs);
 
@@ -29,6 +31,7 @@ void main() async {
 
   runApp(ProviderScope(
     overrides: [
+      databaseProvider.overrideWithValue(db),
       sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
       notificationPortProvider.overrideWithValue(port),
     ],
