@@ -25,6 +25,32 @@ Color _hexToColor(String hex) {
   return Color(int.parse('FF$code', radix: 16));
 }
 
+Future<void> _confirmRestoreDefaults(
+  BuildContext context,
+  CategoryStore store,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('기본 카테고리 복원'),
+      content: const Text('숨긴 기본 카테고리(수면, 업무 등)를 다시 표시합니다.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('복원'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    await store.restoreDefaults();
+  }
+}
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -112,6 +138,15 @@ class SettingsScreen extends ConsumerWidget {
                 const Center(child: CircularProgressIndicator()),
             error: (e, _) => ListTile(title: Text('오류: $e')),
           ),
+          ListTile(
+            leading: const Icon(Icons.restore),
+            title: const Text('기본 카테고리 복원'),
+            subtitle: const Text('숨긴 기본 카테고리를 다시 표시합니다'),
+            onTap: () => _confirmRestoreDefaults(
+              context,
+              ref.read(categoryStoreProvider),
+            ),
+          ),
         ],
       ),
     );
@@ -136,28 +171,23 @@ class _CategoryList extends ConsumerWidget {
               backgroundColor: _hexToColor(cat.colorHex),
             ),
             title: Text(cat.name),
-            trailing: cat.isPreset
-                ? const Text('기본',
-                    style: TextStyle(fontSize: 12, color: Colors.grey))
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () => _showCategoryForm(
-                          context,
-                          store,
-                          existing: cat,
-                        ),
-                      ),
-                      IconButton(
-                        icon:
-                            const Icon(Icons.delete_outline, size: 20),
-                        onPressed: () =>
-                            _confirmDelete(context, store, cat),
-                      ),
-                    ],
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  onPressed: () => _showCategoryForm(
+                    context,
+                    store,
+                    existing: cat,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  onPressed: () => _confirmDelete(context, store, cat),
+                ),
+              ],
+            ),
           );
         }),
         ListTile(
