@@ -11,6 +11,10 @@ import 'database_helper.dart';
 // ---------------------------------------------------------------------------
 
 class TimeBlockStore {
+  TimeBlockStore(this._db);
+
+  final Database _db;
+
   // One broadcast controller per date that has active listeners.
   final _controllers = <String, StreamController<List<TimeBlock>>>{};
 
@@ -19,13 +23,10 @@ class TimeBlockStore {
   /// Emits whenever any block is inserted, updated, or deleted.
   Stream<void> get changes => _changesController.stream;
 
-  Future<Database> get _db => DatabaseHelper.instance.database;
-
   // ── Read ─────────────────────────────────────────────────────────────────
 
   Future<List<TimeBlock>> fetchByDate(String date) async {
-    final db = await _db;
-    final rows = await db.query(
+    final rows = await _db.query(
       'time_blocks',
       where: 'date = ?',
       whereArgs: [date],
@@ -35,8 +36,7 @@ class TimeBlockStore {
   }
 
   Future<int> countByCategory(int categoryId) async {
-    final db = await _db;
-    final result = await db.rawQuery(
+    final result = await _db.rawQuery(
       'SELECT COUNT(*) as cnt FROM time_blocks WHERE categoryId = ?',
       [categoryId],
     );
@@ -44,8 +44,7 @@ class TimeBlockStore {
   }
 
   Future<List<TimeBlock>> fetchByDateRange(String from, String to) async {
-    final db = await _db;
-    final rows = await db.query(
+    final rows = await _db.query(
       'time_blocks',
       where: 'date >= ? AND date <= ?',
       whereArgs: [from, to],
@@ -73,8 +72,7 @@ class TimeBlockStore {
   // ── Write ────────────────────────────────────────────────────────────────
 
   Future<TimeBlock> insert(TimeBlock block) async {
-    final db = await _db;
-    final id = await db.insert(
+    final id = await _db.insert(
       'time_blocks',
       block.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -86,10 +84,9 @@ class TimeBlockStore {
 
   /// Inserts [block], merging with adjacent same-category blocks if present.
   Future<TimeBlock> mergeOrInsert(TimeBlock block) async {
-    final db = await _db;
     late TimeBlock result;
 
-    await db.transaction((txn) async {
+    await _db.transaction((txn) async {
       final prevRows = await txn.query(
         'time_blocks',
         where: 'date = ? AND categoryId = ? AND endMinute = ?',
@@ -139,10 +136,9 @@ class TimeBlockStore {
   /// - blocks straddling the range are split
   /// After clearing the range, merges with adjacent same-category blocks.
   Future<TimeBlock> replaceRange(TimeBlock block) async {
-    final db = await _db;
     late TimeBlock result;
 
-    await db.transaction((txn) async {
+    await _db.transaction((txn) async {
       final overlappingRows = await txn.query(
         'time_blocks',
         where: 'date = ? AND startMinute < ? AND endMinute > ?',
@@ -242,8 +238,7 @@ class TimeBlockStore {
 
   Future<void> update(TimeBlock block) async {
     assert(block.id != null, 'Cannot update a TimeBlock without an id');
-    final db = await _db;
-    await db.update(
+    await _db.update(
       'time_blocks',
       block.toMap(),
       where: 'id = ?',
@@ -253,16 +248,14 @@ class TimeBlockStore {
   }
 
   Future<void> delete(int id) async {
-    final db = await _db;
-    // Fetch date before deletion so we can notify the right stream.
-    final rows = await db.query(
+    final rows = await _db.query(
       'time_blocks',
       columns: ['date'],
       where: 'id = ?',
       whereArgs: [id],
       limit: 1,
     );
-    await db.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
+    await _db.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
       await _notify(rows.first['date'] as String);
     }
@@ -292,7 +285,8 @@ class TimeBlockStore {
 // ---------------------------------------------------------------------------
 
 final timeBlockStoreProvider = Provider<TimeBlockStore>((ref) {
-  final store = TimeBlockStore();
+  final db = ref.watch(databaseProvider);
+  final store = TimeBlockStore(db);
   ref.onDispose(store.dispose);
   return store;
 });

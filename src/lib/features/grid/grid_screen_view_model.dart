@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/db/database_helper.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/time_block.dart';
 import '../../core/notifications/notification_port.dart';
@@ -28,15 +27,8 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
   GridScreenViewModel(this._ref)
       : super(GridScreenState(
           selectedDate: DateTime.now(),
-          dbReady: false,
-        )) {
-    _init();
-  }
-
-  Future<void> _init() async {
-    await DatabaseHelper.instance.database;
-    state = state.copyWith(dbReady: true);
-  }
+          dbReady: true,
+        ));
 
   void goToPreviousDay() =>
       state = state.copyWith(

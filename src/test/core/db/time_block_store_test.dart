@@ -6,22 +6,12 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 
-void main() {
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  });
+late Database db;
 
-  tearDown(() => DatabaseHelper.resetForTesting());
-
-  setUp(() async {
-    await DatabaseHelper.resetForTesting();
-    // Each test gets a fresh in-memory database.
-    final db = await databaseFactoryFfi.openDatabase(
+Future<Database> _openTestDb() => databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
         version: 1,
@@ -54,12 +44,22 @@ void main() {
         },
       ),
     );
-    DatabaseHelper.setDatabaseForTesting(db);
+
+void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
   });
+
+  setUp(() async {
+    db = await _openTestDb();
+  });
+
+  tearDown(() async => db.close());
 
   group('TimeBlockStore', () {
     test('insert and fetchByDate returns the inserted block', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       const block = TimeBlock(
         date: '2026-05-27',
         startMinute: 480,
@@ -82,13 +82,13 @@ void main() {
     });
 
     test('fetchByDate returns empty list for a date with no blocks', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final list = await store.fetchByDate('2000-01-01');
       expect(list, isEmpty);
     });
 
     test('update modifies an existing block', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final inserted = await store.insert(
         const TimeBlock(
           date: '2026-05-27',
@@ -108,7 +108,7 @@ void main() {
     });
 
     test('delete removes the block', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final inserted = await store.insert(
         const TimeBlock(
           date: '2026-05-27',
@@ -126,7 +126,7 @@ void main() {
 
     test('insert multiple blocks and fetch returns all sorted by startMinute',
         () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       await store.insert(
         const TimeBlock(
           date: '2026-05-27',
@@ -151,13 +151,12 @@ void main() {
     });
 
     test('countByCategory returns 0 for category with no blocks', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       expect(await store.countByCategory(1), 0);
     });
 
     test('countByCategory counts only blocks for that category', () async {
-      final store = TimeBlockStore();
-      final db = await DatabaseHelper.instance.database;
+      final store = TimeBlockStore(db);
       await db.insert('categories',
           {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
@@ -176,7 +175,7 @@ void main() {
     });
 
     test('mergeOrInsert – no adjacent blocks: plain insert', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final result = await store.mergeOrInsert(const TimeBlock(
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
       ));
@@ -188,7 +187,7 @@ void main() {
     });
 
     test('mergeOrInsert – prev adjacent same category: extends prev', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
         date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
       ));
@@ -202,7 +201,7 @@ void main() {
     });
 
     test('mergeOrInsert – next adjacent same category: extends next', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
         date: '2026-05-27', startMinute: 110, endMinute: 130, categoryId: 1,
       ));
@@ -216,7 +215,7 @@ void main() {
     });
 
     test('mergeOrInsert – both adjacent same category: merges three into one', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
         date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
       ));
@@ -233,9 +232,7 @@ void main() {
     });
 
     test('mergeOrInsert – adjacent but different category: no merge', () async {
-      final store = TimeBlockStore();
-      // Insert a second category
-      final db = await DatabaseHelper.instance.database;
+      final store = TimeBlockStore(db);
       await db.insert('categories', {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
       await store.insert(const TimeBlock(
@@ -250,7 +247,7 @@ void main() {
 
     group('replaceRange', () {
       test('no overlap: plain insert', () async {
-        final store = TimeBlockStore();
+        final store = TimeBlockStore(db);
         await store.replaceRange(const TimeBlock(
           date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
         ));
@@ -261,7 +258,7 @@ void main() {
       });
 
       test('fully covered block deleted', () async {
-        final store = TimeBlockStore();
+        final store = TimeBlockStore(db);
         await store.insert(const TimeBlock(
           date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
         ));
@@ -275,8 +272,7 @@ void main() {
       });
 
       test('케이스1: 재할당 셀과 인접 동일 카테고리 병합', () async {
-        final store = TimeBlockStore();
-        final db = await DatabaseHelper.instance.database;
+        final store = TimeBlockStore(db);
         await db.insert('categories',
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
@@ -299,8 +295,7 @@ void main() {
       });
 
       test('케이스2: 기존 블록 내부 범위 → split', () async {
-        final store = TimeBlockStore();
-        final db = await DatabaseHelper.instance.database;
+        final store = TimeBlockStore(db);
         await db.insert('categories',
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
@@ -326,8 +321,7 @@ void main() {
       });
 
       test('케이스3: 여러 블록 걸치는 범위 → 양쪽 trim + 중간 삭제', () async {
-        final store = TimeBlockStore();
-        final db = await DatabaseHelper.instance.database;
+        final store = TimeBlockStore(db);
         await db.insert('categories',
             {'name': 'Cat2', 'colorHex': '#FFFFFF', 'isPreset': 0});
         await db.insert('categories',
@@ -358,7 +352,7 @@ void main() {
       });
 
       test('양쪽 인접 동일 카테고리 → 3개 병합', () async {
-        final store = TimeBlockStore();
+        final store = TimeBlockStore(db);
         await store.insert(const TimeBlock(
           date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
         ));
@@ -378,8 +372,7 @@ void main() {
       });
 
       test('기존 블록 전체 덮는 범위로 재할당', () async {
-        final store = TimeBlockStore();
-        final db = await DatabaseHelper.instance.database;
+        final store = TimeBlockStore(db);
         await db.insert('categories',
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
@@ -400,7 +393,7 @@ void main() {
     });
 
     test('watchByDate emits current snapshot immediately', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       await store.insert(
         const TimeBlock(
           date: '2026-05-27',
@@ -416,7 +409,7 @@ void main() {
     });
 
     test('changes emits on insert', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final future = store.changes.first;
       await store.insert(const TimeBlock(
         date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
@@ -425,7 +418,7 @@ void main() {
     });
 
     test('changes emits on replaceRange', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final future = store.changes.first;
       await store.replaceRange(const TimeBlock(
         date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
@@ -434,7 +427,7 @@ void main() {
     });
 
     test('changes emits on delete', () async {
-      final store = TimeBlockStore();
+      final store = TimeBlockStore(db);
       final inserted = await store.insert(const TimeBlock(
         date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
       ));
