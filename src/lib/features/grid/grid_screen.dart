@@ -10,7 +10,9 @@ import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
 import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
+import 'models/time_block_style.dart';
 import 'widgets/grid_cell.dart';
+import 'widgets/time_block_overlay.dart';
 
 class GridScreen extends ConsumerStatefulWidget {
   const GridScreen({super.key});
@@ -256,7 +258,9 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                     onLongPressMoveUpdate: _onLongPressMoveUpdate,
                     onLongPressEnd: _onLongPressEnd,
                     onLongPressCancel: _onLongPressCancel,
-                    child: Column(
+                    child: Stack(
+                      children: [
+                      Column(
                       children: List.generate(24, (rowIndex) {
                         return SizedBox(
                           height: _kCellHeight,
@@ -328,6 +332,15 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                         );
                       }),
                     ),
+                      TimeBlockOverlay(
+                        blocks: dbBlocks,
+                        categories: categories,
+                        style: TimeBlockStyle.tintBar,
+                        cellHeight: _kCellHeight,
+                        timeLabelWidth: _kTimeLabelWidth,
+                      ),
+                    ],
+                  ),
                   );
                 },
               ),

@@ -33,21 +33,12 @@ class _CellBody extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade400, width: 1.0),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1.0),
         ),
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (state.categoryColor != null)
-            Container(
-              color: Color.fromARGB(
-                (state.categoryColor!.a * 255).round(),
-                (state.categoryColor!.r * 255).round(),
-                (state.categoryColor!.g * 255).round(),
-                (state.categoryColor!.b * 255).round(),
-              ),
-            ),
           if (state.isSelected)
             Container(
               color: Colors.blue.withValues(alpha: 0.3),

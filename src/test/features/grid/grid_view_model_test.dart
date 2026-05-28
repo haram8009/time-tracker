@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
 import 'package:time_tracker/features/grid/grid_view_model.dart';
 import 'package:time_tracker/core/models/category.dart';
 import 'package:time_tracker/core/models/time_block.dart';
@@ -36,46 +35,41 @@ void main() {
       expect(cells.every((c) => !c.isSelected), isTrue);
     });
 
-    test('블록 1개 → 해당 셀 색상', () {
-      // startMinute=0, endMinute=10 → index 0
+    test('블록 1개 → categoryColor는 항상 null (오버레이로 이동)', () {
+      // Color rendering moved to TimeBlockOverlay; CellState.categoryColor is always null
       final cells = GridViewModel.compute(
         blocks: [block(start: 0, end: 10)],
         categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
-      expect(cells[0].categoryColor, const Color(0xFFFF0000));
+      expect(cells[0].categoryColor, isNull);
       expect(cells[1].categoryColor, isNull);
     });
 
-    test('블록 경계 — startMinute < cellEnd && endMinute > cellStart', () {
-      // block 10~20 → index 1 (cell 10~20) 만 채워짐
+    test('블록 경계 — categoryColor는 항상 null (오버레이로 이동)', () {
       final cells = GridViewModel.compute(
         blocks: [block(start: 10, end: 20)],
         categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
-      expect(cells[0].categoryColor, isNull); // cell 0~10: endMinute(20) > 0, but startMinute(10) == cellEnd(10) — NOT overlap
-      expect(cells[1].categoryColor, const Color(0xFFFF0000)); // cell 10~20
+      expect(cells[0].categoryColor, isNull);
+      expect(cells[1].categoryColor, isNull);
       expect(cells[2].categoryColor, isNull);
     });
 
-    test('블록 걸침 — 여러 셀 채움', () {
-      // block 0~30 → index 0,1,2
+    test('블록 걸침 — categoryColor는 항상 null (오버레이로 이동)', () {
       final cells = GridViewModel.compute(
         blocks: [block(start: 0, end: 30)],
         categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
-      expect(cells[0].categoryColor, const Color(0xFFFF0000));
-      expect(cells[1].categoryColor, const Color(0xFFFF0000));
-      expect(cells[2].categoryColor, const Color(0xFFFF0000));
-      expect(cells[3].categoryColor, isNull);
+      expect(cells.every((c) => c.categoryColor == null), isTrue);
     });
 
-    test('겹침 블록 → 첫 번째 블록 색 우선', () {
+    test('겹침 블록 → categoryColor는 항상 null (오버레이로 이동)', () {
       final cells = GridViewModel.compute(
         blocks: [
           block(start: 0, end: 10, categoryId: 1),
@@ -85,7 +79,7 @@ void main() {
         photos: [],
         selectedIndices: {},
       );
-      expect(cells[0].categoryColor, const Color(0xFFFF0000)); // cat1 우선
+      expect(cells[0].categoryColor, isNull);
     });
 
     test('카테고리 없는 블록 → 셀 color null', () {
@@ -151,7 +145,7 @@ void main() {
       }
     });
 
-    test('RetiredCategory(isHidden=true) 블록 → 색상 정상 표시', () {
+    test('RetiredCategory(isHidden=true) 블록 → categoryColor null (오버레이로 이동)', () {
       const retiredCat = Category(
         id: 3,
         name: '퇴직카테고리',
@@ -171,7 +165,7 @@ void main() {
         photos: [],
         selectedIndices: {},
       );
-      expect(cells[0].categoryColor, const Color(0xFFAABBCC));
+      expect(cells[0].categoryColor, isNull);
     });
   });
 }
