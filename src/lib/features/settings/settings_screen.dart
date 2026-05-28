@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
+import '../../core/services/appearance_service.dart';
 import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
+import '../grid/models/time_block_style.dart';
 
 const _kColorOptions = [
   '#EF5350',
@@ -60,6 +62,8 @@ class SettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsServiceProvider);
     final svc = ref.read(settingsServiceProvider.notifier);
     final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final blockStyle = ref.watch(appearanceServiceProvider);
+    final appearanceSvc = ref.read(appearanceServiceProvider.notifier);
 
     final analytics = ref.read(analyticsViewModelProvider.notifier);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
@@ -120,6 +124,36 @@ class SettingsScreen extends ConsumerWidget {
                       : null,
                 ),
               ],
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '외관',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: DropdownButtonFormField<TimeBlockStyle>(
+              initialValue: blockStyle,
+              decoration: const InputDecoration(
+                labelText: '타임블록 스타일',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: const [
+                DropdownMenuItem(value: TimeBlockStyle.tintBar, child: Text('틴트 + 왼쪽 바')),
+                DropdownMenuItem(value: TimeBlockStyle.card, child: Text('카드')),
+                DropdownMenuItem(value: TimeBlockStyle.roundedTint, child: Text('둥근 틴트')),
+                DropdownMenuItem(value: TimeBlockStyle.liquidGlass, child: Text('Liquid Glass')),
+              ],
+              onChanged: (v) {
+                if (v != null) appearanceSvc.setBlockStyle(v);
+              },
             ),
           ),
           const Divider(),

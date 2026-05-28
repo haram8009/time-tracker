@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
+import '../../core/services/appearance_service.dart';
 import '../../core/services/photo_library_service.dart';
 import '../../core/utils/time_utils.dart';
 import 'category_bottom_sheet.dart';
@@ -10,7 +11,6 @@ import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
 import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
-import 'models/time_block_style.dart';
 import 'widgets/grid_cell.dart';
 import 'widgets/time_block_overlay.dart';
 
@@ -147,6 +147,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
     final vmState = ref.watch(gridScreenViewModelProvider);
     final vm = ref.read(gridScreenViewModelProvider.notifier);
+    final blockStyle = ref.watch(appearanceServiceProvider);
 
     if (!vmState.dbReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -335,7 +336,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                       TimeBlockOverlay(
                         blocks: dbBlocks,
                         categories: categories,
-                        style: TimeBlockStyle.tintBar,
+                        style: blockStyle,
                         cellHeight: _kCellHeight,
                         timeLabelWidth: _kTimeLabelWidth,
                       ),
