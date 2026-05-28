@@ -150,6 +150,31 @@ void main() {
       expect(list[1].startMinute, 600);
     });
 
+    test('countByCategory returns 0 for category with no blocks', () async {
+      final store = TimeBlockStore();
+      expect(await store.countByCategory(1), 0);
+    });
+
+    test('countByCategory counts only blocks for that category', () async {
+      final store = TimeBlockStore();
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('categories',
+          {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
+
+      await store.insert(const TimeBlock(
+        date: '2026-01-01', startMinute: 0, endMinute: 10, categoryId: 1,
+      ));
+      await store.insert(const TimeBlock(
+        date: '2026-01-01', startMinute: 10, endMinute: 20, categoryId: 1,
+      ));
+      await store.insert(const TimeBlock(
+        date: '2026-01-01', startMinute: 20, endMinute: 30, categoryId: 2,
+      ));
+
+      expect(await store.countByCategory(1), 2);
+      expect(await store.countByCategory(2), 1);
+    });
+
     test('mergeOrInsert – no adjacent blocks: plain insert', () async {
       final store = TimeBlockStore();
       final result = await store.mergeOrInsert(const TimeBlock(

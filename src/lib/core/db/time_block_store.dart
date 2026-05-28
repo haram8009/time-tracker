@@ -34,6 +34,15 @@ class TimeBlockStore {
     return rows.map(TimeBlock.fromMap).toList();
   }
 
+  Future<int> countByCategory(int categoryId) async {
+    final db = await _db;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM time_blocks WHERE categoryId = ?',
+      [categoryId],
+    );
+    return result.first['cnt'] as int;
+  }
+
   Future<List<TimeBlock>> fetchByDateRange(String from, String to) async {
     final db = await _db;
     final rows = await db.query(

@@ -216,24 +216,24 @@ void main() {
       expect(found.isPreset, isTrue);
     });
 
-    test('delete soft-hides category — not visible in fetchAll', () async {
+    test('retire soft-hides category — not visible in fetchAll', () async {
       final store = CategoryStore();
       final inserted = await store.insert(
         const Category(name: '임시', colorHex: '#123456'),
       );
 
-      await store.delete(inserted.id!);
+      await store.retire(inserted.id!);
 
       final all = await store.fetchAll();
       expect(all.any((c) => c.id == inserted.id), isFalse);
     });
 
-    test('delete soft-hides preset — not visible in fetchAll', () async {
+    test('retire soft-hides preset — not visible in fetchAll', () async {
       final store = CategoryStore();
       await store.seedIfNeeded();
 
       final preset = (await store.fetchAll()).first;
-      await store.delete(preset.id!);
+      await store.retire(preset.id!);
 
       final all = await store.fetchAll();
       expect(all.any((c) => c.id == preset.id), isFalse);
@@ -247,6 +247,89 @@ void main() {
       final stream = store.watchAll();
       final list = await stream.first;
       expect(list.length, 6);
+    });
+
+    test('retire soft-hides — fetchAllIncludingRetired still returns it', () async {
+      final store = CategoryStore();
+      final inserted = await store.insert(
+        const Category(name: '임시', colorHex: '#123456'),
+      );
+
+      await store.retire(inserted.id!);
+
+      final visible = await store.fetchAll();
+      expect(visible.any((c) => c.id == inserted.id), isFalse);
+
+      final all = await store.fetchAllIncludingRetired();
+      expect(all.any((c) => c.id == inserted.id), isTrue);
+    });
+
+    test('deleteWithRecords removes category and its time_blocks', () async {
+      final store = CategoryStore(seedCategories: const []);
+      final cat = await store.insert(
+        const Category(name: '삭제대상', colorHex: '#ABCDEF'),
+      );
+
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('time_blocks', {
+        'date': '2026-01-01',
+        'startMinute': 0,
+        'endMinute': 10,
+        'categoryId': cat.id,
+        'note': null,
+      });
+      await db.insert('time_blocks', {
+        'date': '2026-01-02',
+        'startMinute': 20,
+        'endMinute': 30,
+        'categoryId': cat.id,
+        'note': null,
+      });
+
+      await store.deleteWithRecords(cat.id!);
+
+      final cats = await store.fetchAllIncludingRetired();
+      expect(cats.any((c) => c.id == cat.id), isFalse);
+
+      final blocks = await db.query('time_blocks',
+          where: 'categoryId = ?', whereArgs: [cat.id]);
+      expect(blocks, isEmpty);
+    });
+
+    test('deleteWithRecords leaves other categories and blocks intact', () async {
+      final store = CategoryStore(seedCategories: const []);
+      final cat1 = await store.insert(
+        const Category(name: 'A', colorHex: '#111111'),
+      );
+      final cat2 = await store.insert(
+        const Category(name: 'B', colorHex: '#222222'),
+      );
+
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('time_blocks', {
+        'date': '2026-01-01',
+        'startMinute': 0,
+        'endMinute': 10,
+        'categoryId': cat1.id,
+        'note': null,
+      });
+      await db.insert('time_blocks', {
+        'date': '2026-01-01',
+        'startMinute': 10,
+        'endMinute': 20,
+        'categoryId': cat2.id,
+        'note': null,
+      });
+
+      await store.deleteWithRecords(cat1.id!);
+
+      final cats = await store.fetchAllIncludingRetired();
+      expect(cats.any((c) => c.id == cat1.id), isFalse);
+      expect(cats.any((c) => c.id == cat2.id), isTrue);
+
+      final blocks = await db.query('time_blocks',
+          where: 'categoryId = ?', whereArgs: [cat2.id]);
+      expect(blocks.length, 1);
     });
 
     test('watchAll emits updated list after insert', () async {
@@ -276,7 +359,7 @@ void main() {
 
       final presets = await store.fetchAll();
       for (final p in presets) {
-        await store.delete(p.id!);
+        await store.retire(p.id!);
       }
       expect(await store.fetchAll(), isEmpty);
 
@@ -295,7 +378,7 @@ void main() {
       final user = await store.insert(
         const Category(name: '사용자카테고리', colorHex: '#ABCDEF'),
       );
-      await store.delete(user.id!);
+      await store.retire(user.id!);
 
       await store.restoreDefaults();
 

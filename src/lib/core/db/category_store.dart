@@ -73,6 +73,13 @@ class CategoryStore {
     return rows.map(Category.fromMap).toList();
   }
 
+  Future<List<Category>> fetchAllIncludingRetired() async {
+    await _ready;
+    final db = await _db;
+    final rows = await db.query('categories', orderBy: 'id ASC');
+    return rows.map(Category.fromMap).toList();
+  }
+
   Stream<List<Category>> watchAll() {
     fetchAll().then((list) {
       if (!_controller.isClosed) _controller.add(list);
@@ -108,7 +115,7 @@ class CategoryStore {
 
   /// Soft-deletes a category — hides it from the selection list without
   /// removing the DB row (preserves TimeBlock references).
-  Future<void> delete(int id) async {
+  Future<void> retire(int id) async {
     final db = await _db;
     await db.update(
       'categories',
@@ -116,6 +123,18 @@ class CategoryStore {
       where: 'id = ?',
       whereArgs: [id],
     );
+    await _notify();
+  }
+
+  /// Hard-deletes a category and all its TimeBlocks in a single transaction.
+  Future<void> deleteWithRecords(int categoryId) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.delete('time_blocks',
+          where: 'categoryId = ?', whereArgs: [categoryId]);
+      await txn.delete('categories',
+          where: 'id = ?', whereArgs: [categoryId]);
+    });
     await _notify();
   }
 

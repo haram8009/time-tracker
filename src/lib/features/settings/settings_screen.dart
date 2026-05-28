@@ -234,7 +234,7 @@ class _CategoryList extends ConsumerWidget {
       ),
     );
     if (confirmed == true && cat.id != null) {
-      await store.delete(cat.id!);
+      await store.retire(cat.id!);
     }
   }
 }
