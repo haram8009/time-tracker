@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../logic/block_replace_reducer.dart';
 import '../models/time_block.dart';
 import 'database_helper.dart';
 
@@ -130,110 +131,29 @@ class TimeBlockStore {
     return result;
   }
 
-  /// Replaces [startMinute, endMinute) with [block], handling all overlap cases:
-  /// - blocks fully inside the range are deleted
-  /// - blocks partially overlapping are trimmed
-  /// - blocks straddling the range are split
-  /// After clearing the range, merges with adjacent same-category blocks.
+  /// Replaces [startMinute, endMinute) with [block], handling all overlap cases
+  /// and merging adjacent same-category blocks (ADR-0002).
   Future<TimeBlock> replaceRange(TimeBlock block) async {
-    late TimeBlock result;
+    final existing = await fetchByDate(block.date);
+    final ops = applyBlockReplace(existing, block);
 
     await _db.transaction((txn) async {
-      final overlappingRows = await txn.query(
-        'time_blocks',
-        where: 'date = ? AND startMinute < ? AND endMinute > ?',
-        whereArgs: [block.date, block.endMinute, block.startMinute],
-      );
-
-      for (final row in overlappingRows) {
-        final existing = TimeBlock.fromMap(row);
-        final leftOverhang = existing.startMinute < block.startMinute;
-        final rightOverhang = existing.endMinute > block.endMinute;
-
-        if (leftOverhang && rightOverhang) {
-          await txn.update(
-            'time_blocks',
-            existing.copyWith(endMinute: block.startMinute).toMap(),
-            where: 'id = ?',
-            whereArgs: [existing.id],
-          );
-          await txn.insert(
-            'time_blocks',
-            TimeBlock(
-              date: existing.date,
-              startMinute: block.endMinute,
-              endMinute: existing.endMinute,
-              categoryId: existing.categoryId,
-              note: existing.note,
-            ).toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-        } else if (leftOverhang) {
-          await txn.update(
-            'time_blocks',
-            existing.copyWith(endMinute: block.startMinute).toMap(),
-            where: 'id = ?',
-            whereArgs: [existing.id],
-          );
-        } else if (rightOverhang) {
-          await txn.update(
-            'time_blocks',
-            existing.copyWith(startMinute: block.endMinute).toMap(),
-            where: 'id = ?',
-            whereArgs: [existing.id],
-          );
-        } else {
-          await txn.delete(
-              'time_blocks', where: 'id = ?', whereArgs: [existing.id]);
+      for (final op in ops) {
+        switch (op) {
+          case InsertOp(:final block):
+            await txn.insert('time_blocks', block.toMap(),
+                conflictAlgorithm: ConflictAlgorithm.replace);
+          case UpdateOp(:final block):
+            await txn.update('time_blocks', block.toMap(),
+                where: 'id = ?', whereArgs: [block.id]);
+          case DeleteOp(:final id):
+            await txn.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
         }
-      }
-
-      final prevRows = await txn.query(
-        'time_blocks',
-        where: 'date = ? AND categoryId = ? AND endMinute = ?',
-        whereArgs: [block.date, block.categoryId, block.startMinute],
-        limit: 1,
-      );
-      final nextRows = await txn.query(
-        'time_blocks',
-        where: 'date = ? AND categoryId = ? AND startMinute = ?',
-        whereArgs: [block.date, block.categoryId, block.endMinute],
-        limit: 1,
-      );
-
-      final prev =
-          prevRows.isNotEmpty ? TimeBlock.fromMap(prevRows.first) : null;
-      final next =
-          nextRows.isNotEmpty ? TimeBlock.fromMap(nextRows.first) : null;
-
-      if (prev != null && next != null) {
-        final merged = prev.copyWith(endMinute: next.endMinute);
-        await txn.update('time_blocks', merged.toMap(),
-            where: 'id = ?', whereArgs: [prev.id]);
-        await txn.delete('time_blocks',
-            where: 'id = ?', whereArgs: [next.id]);
-        result = merged;
-      } else if (prev != null) {
-        final extended = prev.copyWith(endMinute: block.endMinute);
-        await txn.update('time_blocks', extended.toMap(),
-            where: 'id = ?', whereArgs: [prev.id]);
-        result = extended;
-      } else if (next != null) {
-        final extended = next.copyWith(startMinute: block.startMinute);
-        await txn.update('time_blocks', extended.toMap(),
-            where: 'id = ?', whereArgs: [next.id]);
-        result = extended;
-      } else {
-        final blockToInsert =
-            block.id != null ? block.copyWith(id: null) : block;
-        final id = await txn.insert('time_blocks', blockToInsert.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-        result = block.copyWith(id: id);
       }
     });
 
     await _notify(block.date);
-    return result;
+    return block;
   }
 
   Future<void> update(TimeBlock block) async {
