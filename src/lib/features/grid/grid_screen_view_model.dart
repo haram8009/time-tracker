@@ -1,10 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/db/time_block_store.dart';
 import '../../core/models/time_block.dart';
-import '../../core/notifications/notification_port.dart';
-import '../../core/notifications/notification_scheduler.dart';
-import '../../core/services/settings_service.dart';
-import '../../core/utils/time_utils.dart';
+import '../../core/services/block_save_interactor.dart';
 import 'grid_view_model.dart';
 
 class GridScreenState {
@@ -61,20 +57,7 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
   }
 
   Future<void> saveBlock(TimeBlock block) async {
-    final store = _ref.read(timeBlockStoreProvider);
-    await store.replaceRange(block);
-
-    final todayKey = dateKey(DateTime.now());
-    if (block.date == todayKey) {
-      final todayBlocks = await store.fetchByDate(todayKey);
-      final settings = _ref.read(settingsServiceProvider);
-      final port = _ref.read(notificationPortProvider);
-      await scheduleSmartNotification(
-        todayBlocks: todayBlocks,
-        settings: settings,
-        port: port,
-      );
-    }
+    await _ref.read(blockSaveInteractorProvider).save(block);
   }
 }
 
