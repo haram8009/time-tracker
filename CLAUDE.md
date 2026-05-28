@@ -1,5 +1,8 @@
 # Time Tracker — Claude 작업 지침
 
+## be brief
+use /caveman skill
+
 ## 이슈 연결 규칙
 
 **작업 시작 시:**
