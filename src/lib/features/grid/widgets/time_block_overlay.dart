@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/category.dart';
 import '../../../core/models/time_block.dart';
 import '../../../core/utils/time_utils.dart';
-import '../models/time_block_style.dart';
+import '../../../core/models/time_block_style.dart';
 import 'block_renderer.dart';
 
 class TimeBlockOverlay extends StatelessWidget {

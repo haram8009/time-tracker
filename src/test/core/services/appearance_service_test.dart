@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/core/services/appearance_service.dart';
 import 'package:time_tracker/core/services/preferences_port.dart';
-import 'package:time_tracker/features/grid/models/time_block_style.dart';
+import 'package:time_tracker/core/models/time_block_style.dart';
 
 class _FakePrefs implements PreferencesPort {
   final Map<String, Object> _store = {};

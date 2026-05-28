@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/features/grid/widgets/block_renderer.dart';
-import 'package:time_tracker/features/grid/models/time_block_style.dart';
+import 'package:time_tracker/core/models/time_block_style.dart';
 
 Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) {
   return MaterialApp(

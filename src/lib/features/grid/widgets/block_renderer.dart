@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../models/time_block_style.dart';
+import '../../../core/models/time_block_style.dart';
 
 class BlockRenderer extends StatelessWidget {
   final TimeBlockStyle style;

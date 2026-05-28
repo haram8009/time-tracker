@@ -6,7 +6,7 @@ import '../../core/models/category.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
-import '../grid/models/time_block_style.dart';
+import '../../core/models/time_block_style.dart';
 
 const _kColorOptions = [
   '#EF5350',

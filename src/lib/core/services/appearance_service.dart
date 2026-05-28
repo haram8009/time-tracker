@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/grid/models/time_block_style.dart';
+import '../models/time_block_style.dart';
 import 'preferences_port.dart';
 
 class AppearanceService extends StateNotifier<TimeBlockStyle> {
