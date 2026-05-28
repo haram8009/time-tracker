@@ -189,118 +189,129 @@ class _HeatmapView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
 
     return blocksAsync.when(
-      data: (blocks) {
-        if (blocks.length < threshold) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                '히트맵을 표시하려면\n최소 $threshold개의 기록이 필요해요.',
-                textAlign: TextAlign.center,
+      data: (blocks) => categoriesAsync.when(
+        data: (categories) {
+          if (blocks.length < threshold) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  '히트맵을 표시하려면\n최소 $threshold개의 기록이 필요해요.',
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
+            );
+          }
+          final matrix = AnalyticsEngine.computeHeatmap(
+            blocks: blocks,
+            categories: categories,
           );
-        }
-        final matrix = AnalyticsEngine.computeHeatmap(blocks: blocks);
-        final maxVal =
-            matrix.expand((row) => row).fold(0, (a, b) => a > b ? a : b);
+          final maxVal = matrix
+              .expand((row) => row)
+              .fold<int>(0, (a, c) => c.totalMinutes > a ? c.totalMinutes : a);
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            const labelWidth = 28.0;
-            const cellMargin = 2.0; // 1px each side
-            const numCells = 24;
-            final cellWidth =
-                ((constraints.maxWidth - 32 - labelWidth) / numCells) -
-                    cellMargin;
-            final clampedCell = cellWidth.clamp(8.0, 20.0);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              const labelWidth = 28.0;
+              const cellMargin = 2.0;
+              const numCells = 24;
+              final cellWidth =
+                  ((constraints.maxWidth - 32 - labelWidth) / numCells) -
+                      cellMargin;
+              final clampedCell = cellWidth.clamp(8.0, 20.0);
 
-            return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const SizedBox(width: labelWidth),
-                  ...List.generate(24, (h) {
-                    if (h % 3 != 0) {
-                      return SizedBox(width: clampedCell + cellMargin);
-                    }
-                    return SizedBox(
-                      width: clampedCell + cellMargin,
-                      child: Text(
-                        '$h',
-                        style: const TextStyle(fontSize: 8),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }),
-                ],
-              ),
-              ...List.generate(7, (day) {
-                return Row(
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: labelWidth,
-                      child: Text(
-                        _days[day],
-                        style: const TextStyle(fontSize: 11),
-                        textAlign: TextAlign.center,
-                      ),
+                    Row(
+                      children: [
+                        const SizedBox(width: labelWidth),
+                        ...List.generate(24, (h) {
+                          if (h % 3 != 0) {
+                            return SizedBox(width: clampedCell + cellMargin);
+                          }
+                          return SizedBox(
+                            width: clampedCell + cellMargin,
+                            child: Text(
+                              '$h',
+                              style: const TextStyle(fontSize: 8),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }),
+                      ],
                     ),
-                    ...List.generate(24, (hour) {
-                      final val = matrix[day][hour];
-                      final intensity = maxVal == 0 ? 0.0 : val / maxVal;
-                      return Container(
-                        width: clampedCell,
-                        height: clampedCell,
-                        margin: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: Color.lerp(
-                            Colors.indigo.shade50,
-                            Colors.indigo.shade700,
-                            intensity,
+                    ...List.generate(7, (day) {
+                      return Row(
+                        children: [
+                          SizedBox(
+                            width: labelWidth,
+                            child: Text(
+                              _days[day],
+                              style: const TextStyle(fontSize: 11),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                          ...List.generate(24, (hour) {
+                            final cell = matrix[day][hour];
+                            final intensity = maxVal == 0 || cell.isEmpty
+                                ? 0.0
+                                : cell.totalMinutes / maxVal;
+                            return Container(
+                              width: clampedCell,
+                              height: clampedCell,
+                              margin: const EdgeInsets.all(1),
+                              decoration: BoxDecoration(
+                                color: Color.lerp(
+                                  Colors.indigo.shade50,
+                                  Colors.indigo.shade700,
+                                  intensity,
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            );
+                          }),
+                        ],
                       );
                     }),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('적음 ', style: TextStyle(fontSize: 11)),
+                        ...List.generate(5, (i) {
+                          return Container(
+                            width: 14,
+                            height: 14,
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            decoration: BoxDecoration(
+                              color: Color.lerp(
+                                Colors.indigo.shade50,
+                                Colors.indigo.shade700,
+                                i / 4,
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          );
+                        }),
+                        const Text(' 많음', style: TextStyle(fontSize: 11)),
+                      ],
+                    ),
                   ],
-                );
-              }),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('적음 ', style: TextStyle(fontSize: 11)),
-                  ...List.generate(5, (i) {
-                    return Container(
-                      width: 14,
-                      height: 14,
-                      margin: const EdgeInsets.symmetric(horizontal: 1),
-                      decoration: BoxDecoration(
-                        color: Color.lerp(
-                          Colors.indigo.shade50,
-                          Colors.indigo.shade700,
-                          i / 4,
-                        ),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    );
-                  }),
-                  const Text(' 많음', style: TextStyle(fontSize: 11)),
-                ],
-              ),
-            ],
-          ),
-        );
-          },
-        );
-      },
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('오류: $e')),
+      ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('오류: $e')),
     );

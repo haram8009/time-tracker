@@ -100,34 +100,62 @@ void main() {
   });
 
   group('computeHeatmap', () {
-    test('빈 입력 → 7×24 전부 0', () {
-      final m = AnalyticsEngine.computeHeatmap(blocks: []);
+    TimeBlock hBlock({
+      required String date,
+      required int start,
+      required int end,
+      int catId = 1,
+    }) =>
+        TimeBlock(date: date, startMinute: start, endMinute: end, categoryId: catId);
+
+    test('빈 입력 → 7×24 전부 isEmpty', () {
+      final m = AnalyticsEngine.computeHeatmap(blocks: [], categories: []);
       expect(m.length, 7);
       expect(m.every((row) => row.length == 24), isTrue);
-      expect(m.every((row) => row.every((v) => v == 0)), isTrue);
+      expect(m.every((row) => row.every((c) => c.isEmpty)), isTrue);
     });
 
-    test('월요일 블록 → 요일 인덱스 0', () {
-      // 2026-05-25 = 월요일
-      final b = TimeBlock(
-        date: '2026-05-25',
-        startMinute: 60,
-        endMinute: 120,
-        categoryId: 1,
-      );
-      final m = AnalyticsEngine.computeHeatmap(blocks: [b]);
-      expect(m[0][1], 1); // 월요일, 01시
-      expect(m[0][2], 0); // endMinute=120 → hour 1 only (0..119)
-      expect(m[1][1], 0); // 화요일 아님
+    test('월요일 블록(2026-05-25) → 요일 인덱스 0, 분 정확도', () {
+      final b = hBlock(date: '2026-05-25', start: 60, end: 120);
+      final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: [cat1]);
+      expect(m[0][1].totalMinutes, 60);
+      expect(m[0][1].dominantCategory, cat1);
+      expect(m[0][2].isEmpty, isTrue);
+      expect(m[1][1].isEmpty, isTrue);
     });
 
-    test('여러 날 누적', () {
+    test('부분 겹침(30~90분) → hour 0에 30분, hour 1에 30분', () {
+      final b = hBlock(date: '2026-05-25', start: 30, end: 90);
+      final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: [cat1]);
+      expect(m[0][0].totalMinutes, 30);
+      expect(m[0][1].totalMinutes, 30);
+    });
+
+    test('같은 슬롯 같은 카테고리 누적', () {
       final blocks = [
-        TimeBlock(date: '2026-05-25', startMinute: 60, endMinute: 120, categoryId: 1),
-        TimeBlock(date: '2026-05-25', startMinute: 60, endMinute: 120, categoryId: 1),
+        hBlock(date: '2026-05-25', start: 60, end: 120),
+        hBlock(date: '2026-05-25', start: 60, end: 120),
       ];
-      final m = AnalyticsEngine.computeHeatmap(blocks: blocks);
-      expect(m[0][1], 2);
+      final m = AnalyticsEngine.computeHeatmap(blocks: blocks, categories: [cat1]);
+      expect(m[0][1].totalMinutes, 120);
+      expect(m[0][1].dominantCategory, cat1);
+    });
+
+    test('dominant category = 분 많은 카테고리', () {
+      final blocks = [
+        hBlock(date: '2026-05-25', start: 60, end: 100, catId: 1), // 40분
+        hBlock(date: '2026-05-25', start: 100, end: 120, catId: 2), // 20분
+      ];
+      final m = AnalyticsEngine.computeHeatmap(blocks: blocks, categories: [cat1, cat2]);
+      expect(m[0][1].dominantCategory, cat1);
+      expect(m[0][1].totalMinutes, 60);
+    });
+
+    test('고아 categoryId → dominantCategory null, totalMinutes 유지', () {
+      final b = hBlock(date: '2026-05-25', start: 60, end: 120, catId: 99);
+      final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: []);
+      expect(m[0][1].totalMinutes, 60);
+      expect(m[0][1].dominantCategory, isNull);
     });
   });
 

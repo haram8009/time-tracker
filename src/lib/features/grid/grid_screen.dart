@@ -11,7 +11,6 @@ import 'edit_block_bottom_sheet.dart';
 import 'grid_screen_view_model.dart';
 import 'grid_view_model.dart';
 import 'widgets/grid_cell.dart';
-import '../settings/settings_screen.dart';
 
 class GridScreen extends ConsumerStatefulWidget {
   const GridScreen({super.key});
@@ -39,15 +38,17 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   }
 
   int _positionToCellIndex(Offset localPos) {
-    final scrollOffset =
-        _scrollController.hasClients ? _scrollController.offset : 0.0;
-    final rowIndex =
-        ((localPos.dy + scrollOffset) / _kCellHeight).floor().clamp(0, 23);
-    final availableWidth =
-        MediaQuery.of(context).size.width - _kTimeLabelWidth;
+    final scrollOffset = _scrollController.hasClients
+        ? _scrollController.offset
+        : 0.0;
+    final rowIndex = ((localPos.dy + scrollOffset) / _kCellHeight)
+        .floor()
+        .clamp(0, 23);
+    final availableWidth = MediaQuery.of(context).size.width - _kTimeLabelWidth;
     final cellWidth = availableWidth / 6;
-    final colIndex =
-        ((localPos.dx - _kTimeLabelWidth) / cellWidth).floor().clamp(0, 5);
+    final colIndex = ((localPos.dx - _kTimeLabelWidth) / cellWidth)
+        .floor()
+        .clamp(0, 5);
     return (rowIndex * 6 + colIndex).clamp(0, 143);
   }
 
@@ -93,9 +94,10 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     final rowIndex = idx ~/ 6;
     final screenH = MediaQuery.of(context).size.height;
     final topPad = MediaQuery.of(context).padding.top + kToolbarHeight;
-    final offset =
-        (rowIndex * _kCellHeight - (screenH - topPad) / 2)
-            .clamp(0.0, double.infinity);
+    final offset = (rowIndex * _kCellHeight - (screenH - topPad) / 2).clamp(
+      0.0,
+      double.infinity,
+    );
     _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 400),
@@ -148,8 +150,9 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     }
 
     final selectedDate = vmState.selectedDate;
-    final blocksAsync =
-        ref.watch(timeBlocksStreamProvider(dateKey(selectedDate)));
+    final blocksAsync = ref.watch(
+      timeBlocksStreamProvider(dateKey(selectedDate)),
+    );
     final categoriesAsync = ref.watch(categoriesStreamProvider);
 
     const days = ['월', '화', '수', '목', '금', '토', '일'];
@@ -189,14 +192,6 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               _drag.clearSelection();
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: '설정',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
         ],
         centerTitle: true,
       ),
@@ -204,8 +199,9 @@ class _GridScreenState extends ConsumerState<GridScreen> {
         data: (dbBlocks) {
           return categoriesAsync.when(
             data: (categories) {
-              final photosAsync =
-                  ref.watch(photosForDateProvider(selectedDate));
+              final photosAsync = ref.watch(
+                photosForDateProvider(selectedDate),
+              );
               _currentDateKey = dateKey(selectedDate);
               final cells = GridViewModel.compute(
                 blocks: dbBlocks,
@@ -257,12 +253,18 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                               onTap: _isDragging
                                   ? null
                                   : () {
-                                      final existing =
-                                          vm.blockAtIndex(cellIndex, dbBlocks);
+                                      final existing = vm.blockAtIndex(
+                                        cellIndex,
+                                        dbBlocks,
+                                      );
                                       if (existing != null) {
                                         _drag.clearSelection();
                                         showEditBlockBottomSheet(
-                                            context, ref, existing, categories);
+                                          context,
+                                          ref,
+                                          existing,
+                                          categories,
+                                        );
                                       } else {
                                         _drag.onDragStart(cellIndex);
                                         _drag.onDragEnd();
