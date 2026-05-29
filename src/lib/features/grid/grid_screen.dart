@@ -13,6 +13,7 @@ import 'grid_screen_view_model.dart';
 import 'calendar_modal.dart';
 import 'grid_view_model.dart';
 import 'week_strip.dart';
+import 'widgets/glass_ambient_background.dart';
 import 'widgets/grid_cell.dart';
 import 'widgets/time_block_overlay.dart';
 
@@ -313,7 +314,9 @@ class _GridPage extends ConsumerWidget {
             photos: photosAsync.valueOrNull ?? const [],
             selectedIndices: drag.selectedIndices,
           );
-          return GestureDetector(
+          return GlassAmbientBackground(
+            brightness: Theme.of(context).brightness,
+            child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onLongPressStart: onLongPressStart,
             onLongPressMoveUpdate: onLongPressMoveUpdate,
@@ -401,6 +404,7 @@ class _GridPage extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
           );
         },
       ),
