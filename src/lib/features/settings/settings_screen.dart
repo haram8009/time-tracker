@@ -7,6 +7,7 @@ import '../../core/services/appearance_service.dart';
 import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
 import '../../core/models/time_block_style.dart';
+import '../../core/theme/app_theme.dart';
 
 const _kColorOptions = [
   '#EF5350',
@@ -593,15 +594,38 @@ class _MiniBlock extends StatelessWidget {
           ),
         );
       case TimeBlockStyle.liquidGlass:
-        return Container(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.28),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.5),
-              width: 1,
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final gradient = isDark
+            ? AppTheme.ambientGradientDark
+            : AppTheme.ambientGradientLight;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(6),
+              ),
             ),
-          ),
+            Container(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(6),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.20),
+                    Colors.transparent,
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 1,
+                ),
+              ),
+            ),
+          ],
         );
     }
   }
