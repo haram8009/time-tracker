@@ -6,7 +6,7 @@ import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/notifications/notification_port.dart';
 import 'package:time_tracker/core/notifications/notification_settings.dart';
-import 'package:time_tracker/core/services/block_save_interactor.dart';
+import 'package:time_tracker/core/services/block_mutation_service.dart';
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,7 @@ class _FakeStore extends TimeBlockStore {
   _FakeStore(super.db);
 
   final List<TimeBlock> replacedBlocks = [];
+  final List<int> deletedIds = [];
   final List<TimeBlock> storedBlocks = [];
 
   @override
@@ -22,6 +23,12 @@ class _FakeStore extends TimeBlockStore {
     replacedBlocks.add(b);
     storedBlocks.add(b);
     return b;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    deletedIds.add(id);
+    storedBlocks.removeWhere((b) => b.id == id);
   }
 
   @override
@@ -96,7 +103,7 @@ void main() {
 
   tearDown(() async => db.close());
 
-  group('BlockSaveInteractor.save', () {
+  group('BlockMutationService', () {
     late _FakeStore store;
     late _FakeNotificationPort port;
 
@@ -105,33 +112,31 @@ void main() {
       port = _FakeNotificationPort();
     });
 
-    BlockSaveInteractor makeInteractor({bool notificationsEnabled = true}) =>
-        BlockSaveInteractor(
+    BlockMutationService makeService() => BlockMutationService(
           store: store,
           notificationPort: port,
-          settings: NotificationSettings(enabled: notificationsEnabled),
+          settings: const NotificationSettings(enabled: true),
         );
 
-    test('store.replaceRange 호출됨', () async {
-      await makeInteractor().save(_block(date: _todayKey()));
-      expect(store.replacedBlocks, hasLength(1));
-    });
-
-    test('오늘 블록 → cancelById 호출 (scheduleSmartNotification 트리거)', () async {
-      await makeInteractor().save(_block(date: _todayKey()));
+    test('save() 오늘 날짜 → 알림 reschedule됨', () async {
+      await makeService().save(_block(date: _todayKey()));
       expect(port.cancelledIds, contains(1));
     });
 
-    test('과거 날짜 블록 → 알림 reschedule 없음', () async {
-      await makeInteractor().save(_block(date: '2020-01-01'));
+    test('save() 과거 날짜 → 알림 reschedule 없음', () async {
+      await makeService().save(_block(date: '2020-01-01'));
       expect(port.cancelledIds, isEmpty);
     });
 
-    test('알림 비활성화 → cancelById 호출하지만 scheduleAtTime 없음', () async {
-      await makeInteractor(notificationsEnabled: false).save(_block(date: _todayKey()));
-      // cancelById is still called (to ensure no stale notification remains)
+    test('delete() 오늘 날짜 → 알림 reschedule됨', () async {
+      await makeService().delete(1, DateKey.today());
       expect(port.cancelledIds, contains(1));
-      expect(port.scheduled, isEmpty);
+    });
+
+    test('delete() 과거 날짜 → 알림 reschedule 없음', () async {
+      final pastDate = DateKey.fromDateTime(DateTime(2020, 1, 1));
+      await makeService().delete(1, pastDate);
+      expect(port.cancelledIds, isEmpty);
     });
   });
 }

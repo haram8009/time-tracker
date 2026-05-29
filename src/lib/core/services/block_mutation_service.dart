@@ -7,8 +7,8 @@ import '../notifications/notification_port.dart';
 import '../notifications/notification_scheduler.dart';
 import 'settings_service.dart';
 
-class BlockSaveInteractor {
-  const BlockSaveInteractor({
+class BlockMutationService {
+  const BlockMutationService({
     required this.store,
     required this.notificationPort,
     required this.settings,
@@ -20,11 +20,23 @@ class BlockSaveInteractor {
 
   Future<void> save(TimeBlock block) async {
     await store.replaceRange(block);
+    await _rescheduleIfToday(block.date);
+  }
 
-    final today = DateKey.today();
-    final todayKey = today.toDbString();
-    if (block.date == todayKey) {
-      final todayBlocks = await store.fetchByDate(today);
+  Future<void> delete(int id, DateKey date) async {
+    await store.delete(id);
+    await _rescheduleIfToday(date.toDbString());
+  }
+
+  Future<void> update(TimeBlock block) async {
+    await store.update(block);
+    await _rescheduleIfToday(block.date);
+  }
+
+  Future<void> _rescheduleIfToday(String dateStr) async {
+    final todayKey = DateKey.today().toDbString();
+    if (dateStr == todayKey) {
+      final todayBlocks = await store.fetchByDate(DateKey.today());
       await scheduleSmartNotification(
         todayBlocks: todayBlocks,
         settings: settings,
@@ -34,8 +46,8 @@ class BlockSaveInteractor {
   }
 }
 
-final blockSaveInteractorProvider = Provider<BlockSaveInteractor>((ref) {
-  return BlockSaveInteractor(
+final blockMutationServiceProvider = Provider<BlockMutationService>((ref) {
+  return BlockMutationService(
     store: ref.watch(timeBlockStoreProvider),
     notificationPort: ref.watch(notificationPortProvider),
     settings: ref.watch(settingsServiceProvider),

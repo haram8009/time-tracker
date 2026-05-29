@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/time_block.dart';
-import '../../core/services/block_save_interactor.dart';
+import '../../core/services/block_mutation_service.dart';
 import 'grid_view_model.dart';
 
 class GridScreenState {
@@ -71,7 +71,7 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
   }
 
   Future<void> saveBlock(TimeBlock block) async {
-    await _ref.read(blockSaveInteractorProvider).save(block);
+    await _ref.read(blockMutationServiceProvider).save(block);
   }
 }
 
