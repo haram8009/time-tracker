@@ -83,14 +83,17 @@ class BlockRenderer extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: BackdropFilter(
         filter: ImageFilter.compose(
-          outer: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          outer: ImageFilter.blur(
+            sigmaX: AppTheme.glassBlockBlurSigma,
+            sigmaY: AppTheme.glassBlockBlurSigma,
+          ),
           inner: AppTheme.glassColorMatrix,
         ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
               width: 1,
             ),
             gradient: LinearGradient(
@@ -98,10 +101,10 @@ class BlockRenderer extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 Color.alphaBlend(
-                  Colors.white.withValues(alpha: 0.18),
-                  color.withValues(alpha: 0.32),
+                  Colors.white.withValues(alpha: AppTheme.glassBlockShimmerAlpha),
+                  color.withValues(alpha: AppTheme.glassBlockTintHigh),
                 ),
-                color.withValues(alpha: 0.28),
+                color.withValues(alpha: AppTheme.glassBlockTintLow),
               ],
             ),
           ),

@@ -7,6 +7,7 @@ import '../../core/models/category.dart';
 import '../../core/db/time_block_store.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/time_utils.dart';
 import 'analytics_engine.dart';
 import 'analytics_view_model.dart';
@@ -152,11 +153,11 @@ class _PeriodView extends ConsumerWidget {
                   return PieChartSectionData(
                     borderSide: isGlass
                         ? BorderSide(
-                            color: Colors.white.withValues(alpha: 0.32),
+                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
                             width: 1,
                           )
                         : BorderSide.none,
-                    color: isGlass ? color.withValues(alpha: 0.75) : color,
+                    color: isGlass ? color.withValues(alpha: AppTheme.glassSectionAlpha) : color,
                     value: s.totalMinutes.toDouble(),
                     title: isTouched ? '$pct%' : '',
                     radius: isTouched ? 80 : 64,
@@ -182,20 +183,23 @@ class _PeriodView extends ConsumerWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      filter: ImageFilter.blur(
+                        sigmaX: AppTheme.glassCardBlurSigma,
+                        sigmaY: AppTheme.glassCardBlurSigma,
+                      ),
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.32),
+                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
                             width: 1,
                           ),
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Colors.white.withValues(alpha: 0.22),
-                              Colors.white.withValues(alpha: 0.10),
+                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayHigh),
+                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayLow),
                             ],
                           ),
                         ),

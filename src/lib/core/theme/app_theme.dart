@@ -21,6 +21,23 @@ class AppTheme {
     ],
   );
 
+  // Glass blur sigmas
+  static const double glassBlockBlurSigma = 16.0;
+  static const double glassCardBlurSigma = 24.0;
+
+  // Glass overlay / border alphas
+  static const double glassBorderAlpha = 0.32;
+  static const double glassCardOverlayHigh = 0.22;
+  static const double glassCardOverlayLow = 0.10;
+
+  // Block-specific glass tint alphas
+  static const double glassBlockShimmerAlpha = 0.18;
+  static const double glassBlockTintHigh = 0.32;
+  static const double glassBlockTintLow = 0.28;
+
+  // Chart section alpha
+  static const double glassSectionAlpha = 0.75;
+
   // saturate(180%) CSS filter equivalent — 4×5 row-major color matrix
   static const glassColorMatrix = ColorFilter.matrix(<double>[
     1.6296, -0.5720, -0.0576, 0, 0,
