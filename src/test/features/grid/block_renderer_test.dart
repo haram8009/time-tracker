@@ -83,6 +83,42 @@ void main() {
       expect(find.byType(BackdropFilter), findsOneWidget);
     });
 
+    testWidgets('liquidGlass has ClipRRect with radius 10', (tester) async {
+      await tester.pumpWidget(_wrap(
+        const BlockRenderer(
+            style: TimeBlockStyle.liquidGlass,
+            color: color,
+            label: label,
+            height: 40),
+      ));
+      final clip = tester.widget<ClipRRect>(
+        find.descendant(
+          of: find.byType(BlockRenderer),
+          matching: find.byType(ClipRRect),
+        ).first,
+      );
+      expect(clip.borderRadius, BorderRadius.circular(10));
+    });
+
+    testWidgets('liquidGlass border opacity 0.35', (tester) async {
+      await tester.pumpWidget(_wrap(
+        const BlockRenderer(
+            style: TimeBlockStyle.liquidGlass,
+            color: color,
+            label: label,
+            height: 40),
+      ));
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(BackdropFilter),
+          matching: find.byType(Container),
+        ).first,
+      );
+      final decoration = container.decoration as BoxDecoration;
+      final border = decoration.border as Border;
+      expect(border.top.color.a, closeTo(0.35, 0.05));
+    });
+
     testWidgets('label hidden when height < 20', (tester) async {
       await tester.pumpWidget(_wrap(
         const BlockRenderer(

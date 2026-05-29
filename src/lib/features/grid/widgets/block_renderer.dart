@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/models/time_block_style.dart';
+import '../../../core/theme/app_theme.dart';
 
 class BlockRenderer extends StatelessWidget {
   final TimeBlockStyle style;
@@ -81,20 +82,23 @@ class BlockRenderer extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.compose(
+          outer: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          inner: AppTheme.glassColorMatrix,
+        ),
         child: Container(
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.28),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.45),
+              color: Colors.white.withValues(alpha: 0.35),
               width: 1,
             ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.15),
+                Colors.white.withValues(alpha: 0.20),
                 Colors.transparent,
               ],
             ),
