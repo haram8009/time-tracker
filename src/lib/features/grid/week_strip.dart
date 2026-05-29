@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/models/date_key.dart';
 
 /// Returns the Sunday that begins the week containing [date].
-DateTime weekStartDate(DateTime date) {
-  // weekday: Mon=1 ... Sun=7; we want Sunday=0 offset
-  final daysSinceSunday = date.weekday % 7; // Mon=1->1, Sun=7->0
-  return DateTime(date.year, date.month, date.day - daysSinceSunday);
+DateKey weekStartDate(DateKey date) {
+  final daysSinceSunday = date.toDateTime().weekday % 7;
+  return date.add(Duration(days: -daysSinceSunday));
 }
 
 /// Visual state of a day cell in the week strip.
@@ -17,17 +17,13 @@ enum WeekCellState {
 
 /// Pure fn — determines cell state given cell date, selected date, today.
 WeekCellState weekCellState(
-  DateTime cellDate,
-  DateTime selectedDate,
-  DateTime today,
+  DateKey cellDate,
+  DateKey selectedDate,
+  DateKey today,
 ) {
-  final cell = DateTime(cellDate.year, cellDate.month, cellDate.day);
-  final sel = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-  final tod = DateTime(today.year, today.month, today.day);
-
-  if (cell.isAfter(tod)) return WeekCellState.future;
-  if (cell == sel) return WeekCellState.selected;
-  if (cell == tod) return WeekCellState.today;
+  if (cellDate.isAfter(today)) return WeekCellState.future;
+  if (cellDate == selectedDate) return WeekCellState.selected;
+  if (cellDate == today) return WeekCellState.today;
   return WeekCellState.normal;
 }
 
@@ -39,15 +35,15 @@ class WeekStrip extends StatelessWidget {
     required this.onDateSelected,
   });
 
-  final DateTime selectedDate;
-  final void Function(DateTime) onDateSelected;
+  final DateKey selectedDate;
+  final void Function(DateKey) onDateSelected;
 
   static const double height = 56.0;
   static const List<String> _labels = ['일', '월', '화', '수', '목', '금', '토'];
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
+    final today = DateKey.today();
     final sunday = weekStartDate(selectedDate);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -83,7 +79,7 @@ class _DayCell extends StatelessWidget {
     required this.onTap,
   });
 
-  final DateTime date;
+  final DateKey date;
   final String label;
   final WeekCellState state;
   final ColorScheme colorScheme;
@@ -131,7 +127,7 @@ class _DayCell extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           )
-        : const SizedBox(height: 6); // keep height consistent
+        : const SizedBox(height: 6);
 
     Widget cell = Column(
       mainAxisAlignment: MainAxisAlignment.center,

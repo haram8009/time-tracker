@@ -1,15 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/date_key.dart';
 import '../../core/models/time_block.dart';
 import '../../core/services/block_mutation_service.dart';
 import 'grid_view_model.dart';
 
 class GridScreenState {
-  final DateTime selectedDate;
+  final DateKey selectedDate;
   final bool dbReady;
 
   const GridScreenState({required this.selectedDate, required this.dbReady});
 
-  GridScreenState copyWith({DateTime? selectedDate, bool? dbReady}) {
+  GridScreenState copyWith({DateKey? selectedDate, bool? dbReady}) {
     return GridScreenState(
       selectedDate: selectedDate ?? this.selectedDate,
       dbReady: dbReady ?? this.dbReady,
@@ -22,44 +23,28 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
 
   GridScreenViewModel(this._ref)
       : super(GridScreenState(
-          selectedDate: DateTime.now(),
+          selectedDate: DateKey.today(),
           dbReady: true,
         ));
 
   void goToPreviousDay() =>
       state = state.copyWith(
-        selectedDate: state.selectedDate.subtract(const Duration(days: 1)),
+        selectedDate: state.selectedDate.add(const Duration(days: -1)),
       );
 
   void goToNextDay() {
     final next = state.selectedDate.add(const Duration(days: 1));
-    final today = DateTime.now();
-    if (next.year > today.year ||
-        (next.year == today.year && next.month > today.month) ||
-        (next.year == today.year &&
-            next.month == today.month &&
-            next.day > today.day)) {
-      return;
-    }
+    if (next.isAfter(DateKey.today())) return;
     state = state.copyWith(selectedDate: next);
   }
 
-  void goToDate(DateTime date) {
-    final today = DateTime.now();
-    if (date.year > today.year ||
-        (date.year == today.year && date.month > today.month) ||
-        (date.year == today.year &&
-            date.month == today.month &&
-            date.day > today.day)) {
-      return;
-    }
-    state = state.copyWith(
-      selectedDate: DateTime(date.year, date.month, date.day),
-    );
+  void goToDate(DateKey date) {
+    if (date.isAfter(DateKey.today())) return;
+    state = state.copyWith(selectedDate: date);
   }
 
   void goToToday() =>
-      state = state.copyWith(selectedDate: DateTime.now());
+      state = state.copyWith(selectedDate: DateKey.today());
 
   TimeBlock? blockAtIndex(int index, List<TimeBlock> blocks) {
     final cellStart = GridViewModel.indexToMinute(index);

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../core/models/date_key.dart';
 
 /// Opens a calendar bottom-sheet. Calls [onDateSelected] and closes on day tap.
 /// Header year-label tap → year view (12-month grid) → month tap → back to month view.
 Future<void> showCalendarModal({
   required BuildContext context,
-  required DateTime selectedDate,
-  required void Function(DateTime) onDateSelected,
+  required DateKey selectedDate,
+  required void Function(DateKey) onDateSelected,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -16,8 +17,8 @@ Future<void> showCalendarModal({
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (_) => _CalendarModalContent(
-      selectedDate: selectedDate,
-      onDateSelected: onDateSelected,
+      selectedDate: selectedDate.toDateTime(),
+      onDateSelected: (dt) => onDateSelected(DateKey.fromDateTime(dt)),
     ),
   );
 }

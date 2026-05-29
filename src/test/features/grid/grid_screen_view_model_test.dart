@@ -204,40 +204,35 @@ void main() {
 
     test('오늘 날짜 → selectedDate 업데이트', () {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      final today = DateTime.now();
+      final today = DateKey.today();
       vm.goToDate(today);
       final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate.year, today.year);
-      expect(state.selectedDate.month, today.month);
-      expect(state.selectedDate.day, today.day);
+      expect(state.selectedDate, today);
     });
 
     test('과거 날짜 → selectedDate 업데이트', () {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      final past = DateTime(2024, 3, 15);
+      const past = DateKey(2024, 3, 15);
       vm.goToDate(past);
       final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate.year, 2024);
-      expect(state.selectedDate.month, 3);
-      expect(state.selectedDate.day, 15);
+      expect(state.selectedDate, past);
     });
 
     test('미래 날짜 → selectedDate 변경 없음', () {
       final vm = container.read(gridScreenViewModelProvider.notifier);
       final before = container.read(gridScreenViewModelProvider).selectedDate;
-      final future = DateTime.now().add(const Duration(days: 1));
+      final future = DateKey.today().add(const Duration(days: 1));
       vm.goToDate(future);
       final after = container.read(gridScreenViewModelProvider).selectedDate;
-      expect(after.year, before.year);
-      expect(after.month, before.month);
-      expect(after.day, before.day);
+      expect(after, before);
     });
 
-    test('시간 정보 제거 — selectedDate는 자정(0시)으로 정규화', () {
+    test('DateKey 동등성 — selectedDate는 DateKey 값 타입', () {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      vm.goToDate(DateTime(2024, 6, 1, 15, 30, 59));
+      const target = DateKey(2024, 6, 1);
+      vm.goToDate(target);
       final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate, DateTime(2024, 6, 1));
+      expect(state.selectedDate, const DateKey(2024, 6, 1));
     });
   });
 }

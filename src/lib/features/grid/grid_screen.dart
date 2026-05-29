@@ -36,13 +36,6 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   static const double _kTimeLabelWidth = 48.0;
   static const double _kCellHeight = 48.0;
 
-  static final DateTime _epoch = DateTime(2020, 1, 1);
-
-  int _dateToPage(DateTime d) =>
-      DateTime(d.year, d.month, d.day).difference(_epoch).inDays;
-
-  DateTime _pageToDate(int page) => _epoch.add(Duration(days: page));
-
   @override
   void initState() {
     super.initState();
@@ -50,8 +43,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     _drag = DragSelectionController();
     _drag.addListener(() => setState(() {}));
 
-    final initialDate = DateTime.now();
-    _pageController = PageController(initialPage: _dateToPage(initialDate));
+    final initialPage = DateKey.today().toPage(DateKey.appEpoch);
+    _pageController = PageController(initialPage: initialPage);
   }
 
   int _positionToCellIndex(Offset localPos) {
@@ -125,11 +118,6 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     );
   }
 
-  bool _isToday(DateTime d) {
-    final now = DateTime.now();
-    return d.year == now.year && d.month == now.month && d.day == now.day;
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -140,8 +128,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final todayPage = _dateToPage(today);
+    final todayPage = DateKey.today().toPage(DateKey.appEpoch);
 
     // Sync PageController when selectedDate changes externally (e.g. WeekStrip, CalendarModal)
     ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
@@ -149,14 +136,14 @@ class _GridScreenState extends ConsumerState<GridScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
       } else if (prev?.selectedDate != next.selectedDate) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_isToday(next.selectedDate)) {
+          if (DateKey.today() == next.selectedDate) {
             _scrollToNow();
           } else {
             _scrollToTop();
           }
 
           // Sync PageView to externally-driven date change
-          final targetPage = _dateToPage(next.selectedDate);
+          final targetPage = next.selectedDate.toPage(DateKey.appEpoch);
           if (_pageController.hasClients &&
               _pageController.page?.round() != targetPage) {
             _isProgrammaticJump = true;
@@ -209,7 +196,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             ),
             centerTitle: false,
             actions: [
-              if (!_isToday(selectedDate))
+              if (DateKey.today() != selectedDate)
                 TextButton(
                   onPressed: () {
                     vm.goToToday();
@@ -241,12 +228,12 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                     _isProgrammaticJump = false;
                     return;
                   }
-                  final date = _pageToDate(page);
+                  final date = DateKey.fromPage(page, DateKey.appEpoch);
                   vm.goToDate(date);
                   _drag.clearSelection();
                 },
                 itemBuilder: (context, page) {
-                  final pageDate = _pageToDate(page);
+                  final pageDate = DateKey.fromPage(page, DateKey.appEpoch);
                   return _GridPage(
                     date: pageDate,
                     isDragging: _isDragging,
@@ -286,7 +273,7 @@ class _GridPage extends ConsumerWidget {
     required this.onLongPressCancel,
   });
 
-  final DateTime date;
+  final DateKey date;
   final bool isDragging;
   final DragSelectionController drag;
   final dynamic blockStyle;
@@ -301,7 +288,7 @@ class _GridPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vm = ref.read(gridScreenViewModelProvider.notifier);
-    final blocksAsync = ref.watch(timeBlocksStreamProvider(DateKey.fromDateTime(date)));
+    final blocksAsync = ref.watch(timeBlocksStreamProvider(date));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
     return blocksAsync.when(
@@ -311,8 +298,8 @@ class _GridPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (categories) {
-          final photosAsync = ref.watch(photosForDateProvider(date));
-          onCurrentDateKey(DateKey.fromDateTime(date).toDbString());
+          final photosAsync = ref.watch(photosForDateProvider(date.toDateTime()));
+          onCurrentDateKey(date.toDbString());
           final cells = GridViewModel.compute(
             blocks: dbBlocks,
             categories: categories,
@@ -355,7 +342,7 @@ class _GridPage extends ConsumerWidget {
                             final cellIndex = rowIndex * 6 + col;
                             return Expanded(
                               child: GridCell(
-                                key: ValueKey('${DateKey.fromDateTime(date).toDbString()}-$cellIndex'),
+                                key: ValueKey('${date.toDbString()}-$cellIndex'),
                                 index: cellIndex,
                                 state: cells[cellIndex],
                                 onTap: isDragging
@@ -381,7 +368,7 @@ class _GridPage extends ConsumerWidget {
                                             showCategoryBottomSheet(
                                               context,
                                               ref,
-                                              DateKey.fromDateTime(date).toDbString(),
+                                              date.toDbString(),
                                               sel.startMinute,
                                               sel.endMinute,
                                             ).then(
@@ -421,8 +408,8 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
     required this.backgroundColor,
   });
 
-  final DateTime selectedDate;
-  final void Function(DateTime) onDateSelected;
+  final DateKey selectedDate;
+  final void Function(DateKey) onDateSelected;
   final Color backgroundColor;
 
   @override
