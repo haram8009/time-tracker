@@ -60,16 +60,18 @@ class TimeBlockOverlay extends StatelessWidget {
             final segWidth = (numCols * cellSlotWidth - 2.0).clamp(0.0, double.infinity);
             final isFirst = row == startRow;
 
+            const double blockInset = 2.0;
+            final segHeight = cellHeight - blockInset * 2;
             segments.add(Positioned(
-              top: top,
+              top: top + blockInset,
               left: segLeft,
               width: segWidth,
-              height: cellHeight,
+              height: segHeight,
               child: BlockRenderer(
                 style: style,
                 color: color,
                 label: isFirst ? label : '',
-                height: cellHeight,
+                height: segHeight,
               ),
             ));
           }
