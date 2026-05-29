@@ -44,6 +44,20 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
     state = state.copyWith(selectedDate: next);
   }
 
+  void goToDate(DateTime date) {
+    final today = DateTime.now();
+    if (date.year > today.year ||
+        (date.year == today.year && date.month > today.month) ||
+        (date.year == today.year &&
+            date.month == today.month &&
+            date.day > today.day)) {
+      return;
+    }
+    state = state.copyWith(
+      selectedDate: DateTime(date.year, date.month, date.day),
+    );
+  }
+
   void goToToday() =>
       state = state.copyWith(selectedDate: DateTime.now());
 
