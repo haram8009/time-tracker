@@ -7,6 +7,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 
 late Database db;
@@ -76,14 +77,14 @@ void main() {
       expect(inserted.endMinute, 540);
       expect(inserted.note, 'morning work');
 
-      final list = await store.fetchByDate('2026-05-27');
+      final list = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(list.length, 1);
       expect(list.first.id, inserted.id);
     });
 
     test('fetchByDate returns empty list for a date with no blocks', () async {
       final store = TimeBlockStore(db);
-      final list = await store.fetchByDate('2000-01-01');
+      final list = await store.fetchByDate(const DateKey(2000, 1, 1));
       expect(list, isEmpty);
     });
 
@@ -101,7 +102,7 @@ void main() {
       final updated = inserted.copyWith(endMinute: 180, note: 'updated');
       await store.update(updated);
 
-      final list = await store.fetchByDate('2026-05-27');
+      final list = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(list.length, 1);
       expect(list.first.endMinute, 180);
       expect(list.first.note, 'updated');
@@ -120,7 +121,7 @@ void main() {
 
       await store.delete(inserted.id!);
 
-      final list = await store.fetchByDate('2026-05-27');
+      final list = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(list, isEmpty);
     });
 
@@ -144,7 +145,7 @@ void main() {
         ),
       );
 
-      final list = await store.fetchByDate('2026-05-27');
+      final list = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(list.length, 2);
       expect(list[0].startMinute, 120);
       expect(list[1].startMinute, 600);
@@ -180,7 +181,7 @@ void main() {
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
       ));
       expect(result.id, isNotNull);
-      final all = await store.fetchByDate('2026-05-27');
+      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
       expect(all.first.startMinute, 100);
       expect(all.first.endMinute, 110);
@@ -194,7 +195,7 @@ void main() {
       await store.mergeOrInsert(const TimeBlock(
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
       ));
-      final all = await store.fetchByDate('2026-05-27');
+      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
       expect(all.first.startMinute, 80);
       expect(all.first.endMinute, 110);
@@ -208,7 +209,7 @@ void main() {
       await store.mergeOrInsert(const TimeBlock(
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
       ));
-      final all = await store.fetchByDate('2026-05-27');
+      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
       expect(all.first.startMinute, 100);
       expect(all.first.endMinute, 130);
@@ -225,7 +226,7 @@ void main() {
       await store.mergeOrInsert(const TimeBlock(
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
       ));
-      final all = await store.fetchByDate('2026-05-27');
+      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
       expect(all.first.startMinute, 80);
       expect(all.first.endMinute, 130);
@@ -241,7 +242,7 @@ void main() {
       await store.mergeOrInsert(const TimeBlock(
         date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 2,
       ));
-      final all = await store.fetchByDate('2026-05-27');
+      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 2);
     });
 
@@ -251,7 +252,7 @@ void main() {
         await store.replaceRange(const TimeBlock(
           date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
         ));
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
         expect(all.first.startMinute, 100);
         expect(all.first.endMinute, 110);
@@ -265,7 +266,7 @@ void main() {
         await store.replaceRange(const TimeBlock(
           date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
         ));
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
         expect(all.first.startMinute, 100);
         expect(all.first.endMinute, 110);
@@ -287,7 +288,7 @@ void main() {
           date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 2,
         ));
 
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
         expect(all.first.startMinute, 0);
         expect(all.first.endMinute, 20);
@@ -307,7 +308,7 @@ void main() {
           date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 2,
         ));
 
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 3);
         expect(all[0].startMinute, 0);
         expect(all[0].endMinute, 10);
@@ -338,7 +339,7 @@ void main() {
           date: '2026-05-27', startMinute: 10, endMinute: 30, categoryId: 3,
         ));
 
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 3);
         expect(all[0].startMinute, 0);
         expect(all[0].endMinute, 10);
@@ -364,7 +365,7 @@ void main() {
           date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 1,
         ));
 
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
         expect(all.first.startMinute, 0);
         expect(all.first.endMinute, 30);
@@ -384,7 +385,7 @@ void main() {
           date: '2026-05-27', startMinute: 0, endMinute: 30, categoryId: 2,
         ));
 
-        final all = await store.fetchByDate('2026-05-27');
+        final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
         expect(all.first.startMinute, 0);
         expect(all.first.endMinute, 30);
@@ -403,7 +404,7 @@ void main() {
         ),
       );
 
-      final stream = store.watchByDate('2026-05-27');
+      final stream = store.watchByDate(const DateKey(2026, 5, 27));
       final list = await stream.first;
       expect(list.length, 1);
     });

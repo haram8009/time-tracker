@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/services/preferences_port.dart';
 import 'package:time_tracker/features/analytics/analytics_view_model.dart';
 
@@ -47,16 +48,14 @@ void main() {
 
       test('week → 월요일 ~ 오늘', () {
         final (start, end) = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.week);
-        expect(start.length, 10); // 'yyyy-MM-dd'
-        expect(end.length, 10);
-        expect(start.compareTo(end), lessThanOrEqualTo(0));
+        expect(start, isA<DateKey>());
+        expect(end, isA<DateKey>());
+        expect(start.isBefore(end) || start == end, isTrue);
       });
 
       test('heatmap → 14일 범위', () {
         final (start, end) = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
-        final startDate = DateTime.parse(start);
-        final endDate = DateTime.parse(end);
-        final diff = endDate.difference(startDate).inDays;
+        final diff = end.toDateTime().difference(start.toDateTime()).inDays;
         expect(diff, 13);
       });
     });

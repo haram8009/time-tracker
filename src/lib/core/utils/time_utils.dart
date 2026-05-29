@@ -1,8 +1,5 @@
 import 'dart:ui';
 
-String dateKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
 Color hexToColor(String hex) {
   final h = hex.replaceFirst('#', '');
   return Color(int.parse('FF$h', radix: 16));

@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/notifications/notification_port.dart';
 import 'package:time_tracker/core/notifications/notification_settings.dart';
@@ -24,8 +25,8 @@ class _FakeStore extends TimeBlockStore {
   }
 
   @override
-  Future<List<TimeBlock>> fetchByDate(String date) async =>
-      storedBlocks.where((b) => b.date == date).toList();
+  Future<List<TimeBlock>> fetchByDate(DateKey date) async =>
+      storedBlocks.where((b) => b.date == date.toDbString()).toList();
 }
 
 class _FakeNotificationPort implements NotificationPort {

@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/time_block_store.dart';
+import '../models/date_key.dart';
 import '../models/time_block.dart';
 import '../notifications/notification_port.dart';
 import '../notifications/notification_scheduler.dart';
-import '../utils/time_utils.dart';
 import 'settings_service.dart';
 
 class BlockSaveInteractor {
@@ -21,9 +21,10 @@ class BlockSaveInteractor {
   Future<void> save(TimeBlock block) async {
     await store.replaceRange(block);
 
-    final todayKey = dateKey(DateTime.now());
+    final today = DateKey.today();
+    final todayKey = today.toDbString();
     if (block.date == todayKey) {
-      final todayBlocks = await store.fetchByDate(todayKey);
+      final todayBlocks = await store.fetchByDate(today);
       await scheduleSmartNotification(
         todayBlocks: todayBlocks,
         settings: settings,

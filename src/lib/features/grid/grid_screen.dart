@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
+import '../../core/models/date_key.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/services/photo_library_service.dart';
-import '../../core/utils/time_utils.dart';
 import 'category_bottom_sheet.dart';
 import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
@@ -301,7 +301,7 @@ class _GridPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vm = ref.read(gridScreenViewModelProvider.notifier);
-    final blocksAsync = ref.watch(timeBlocksStreamProvider(dateKey(date)));
+    final blocksAsync = ref.watch(timeBlocksStreamProvider(DateKey.fromDateTime(date)));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
     return blocksAsync.when(
@@ -312,7 +312,7 @@ class _GridPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (categories) {
           final photosAsync = ref.watch(photosForDateProvider(date));
-          onCurrentDateKey(dateKey(date));
+          onCurrentDateKey(DateKey.fromDateTime(date).toDbString());
           final cells = GridViewModel.compute(
             blocks: dbBlocks,
             categories: categories,
@@ -355,7 +355,7 @@ class _GridPage extends ConsumerWidget {
                             final cellIndex = rowIndex * 6 + col;
                             return Expanded(
                               child: GridCell(
-                                key: ValueKey('${dateKey(date)}-$cellIndex'),
+                                key: ValueKey('${DateKey.fromDateTime(date).toDbString()}-$cellIndex'),
                                 index: cellIndex,
                                 state: cells[cellIndex],
                                 onTap: isDragging
@@ -381,7 +381,7 @@ class _GridPage extends ConsumerWidget {
                                             showCategoryBottomSheet(
                                               context,
                                               ref,
-                                              dateKey(date),
+                                              DateKey.fromDateTime(date).toDbString(),
                                               sel.startMinute,
                                               sel.endMinute,
                                             ).then(

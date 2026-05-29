@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/date_key.dart';
 import '../../core/services/preferences_port.dart';
-import '../../core/utils/time_utils.dart';
 
 enum AnalyticsPeriod { day, week, month, heatmap }
 
@@ -34,21 +34,21 @@ class AnalyticsViewModel extends StateNotifier<AnalyticsState> {
     await _prefs.setInt(_keyThreshold, value);
   }
 
-  static (String, String) dateRangeFor(AnalyticsPeriod period) {
+  static (DateKey, DateKey) dateRangeFor(AnalyticsPeriod period) {
     final now = DateTime.now();
+    final today = DateKey.fromDateTime(now);
     switch (period) {
       case AnalyticsPeriod.day:
-        final d = dateKey(now);
-        return (d, d);
+        return (today, today);
       case AnalyticsPeriod.week:
         final mon = now.subtract(Duration(days: now.weekday - 1));
-        return (dateKey(mon), dateKey(now));
+        return (DateKey.fromDateTime(mon), today);
       case AnalyticsPeriod.month:
         final first = DateTime(now.year, now.month, 1);
-        return (dateKey(first), dateKey(now));
+        return (DateKey.fromDateTime(first), today);
       case AnalyticsPeriod.heatmap:
         final from = now.subtract(const Duration(days: 13));
-        return (dateKey(from), dateKey(now));
+        return (DateKey.fromDateTime(from), today);
     }
   }
 

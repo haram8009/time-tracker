@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../logic/block_replace_reducer.dart';
+import '../models/date_key.dart';
 import '../models/time_block.dart';
 import 'database_helper.dart';
 
@@ -26,11 +27,11 @@ class TimeBlockStore {
 
   // ── Read ─────────────────────────────────────────────────────────────────
 
-  Future<List<TimeBlock>> fetchByDate(String date) async {
+  Future<List<TimeBlock>> fetchByDate(DateKey date) async {
     final rows = await _db.query(
       'time_blocks',
       where: 'date = ?',
-      whereArgs: [date],
+      whereArgs: [date.toDbString()],
       orderBy: 'startMinute ASC',
     );
     return rows.map(TimeBlock.fromMap).toList();
@@ -44,21 +45,22 @@ class TimeBlockStore {
     return result.first['cnt'] as int;
   }
 
-  Future<List<TimeBlock>> fetchByDateRange(String from, String to) async {
+  Future<List<TimeBlock>> fetchByDateRange(DateKey from, DateKey to) async {
     final rows = await _db.query(
       'time_blocks',
       where: 'date >= ? AND date <= ?',
-      whereArgs: [from, to],
+      whereArgs: [from.toDbString(), to.toDbString()],
       orderBy: 'date ASC, startMinute ASC',
     );
     return rows.map(TimeBlock.fromMap).toList();
   }
 
-  Stream<List<TimeBlock>> watchByDate(String date) {
+  Stream<List<TimeBlock>> watchByDate(DateKey date) {
+    final key = date.toDbString();
     final controller = _controllers.putIfAbsent(
-      date,
+      key,
       () => StreamController<List<TimeBlock>>.broadcast(
-        onCancel: () => _controllers.remove(date),
+        onCancel: () => _controllers.remove(key),
       ),
     );
 
@@ -134,7 +136,8 @@ class TimeBlockStore {
   /// Replaces [startMinute, endMinute) with [block], handling all overlap cases
   /// and merging adjacent same-category blocks (ADR-0002).
   Future<TimeBlock> replaceRange(TimeBlock block) async {
-    final existing = await fetchByDate(block.date);
+    final dateParts = block.date.split('-');
+    final existing = await fetchByDate(DateKey(int.parse(dateParts[0]), int.parse(dateParts[1]), int.parse(dateParts[2])));
     final ops = applyBlockReplace(existing, block);
 
     await _db.transaction((txn) async {
@@ -187,7 +190,9 @@ class TimeBlockStore {
     if (!_changesController.isClosed) _changesController.add(null);
     final controller = _controllers[date];
     if (controller == null || controller.isClosed) return;
-    final list = await fetchByDate(date);
+    final parts = date.split('-');
+    final key = DateKey(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    final list = await fetchByDate(key);
     controller.add(list);
   }
 
@@ -213,14 +218,14 @@ final timeBlockStoreProvider = Provider<TimeBlockStore>((ref) {
 
 /// Reactive stream of time blocks for a specific date.
 final timeBlocksStreamProvider =
-    StreamProvider.family<List<TimeBlock>, String>((ref, date) {
+    StreamProvider.family<List<TimeBlock>, DateKey>((ref, date) {
   return ref.watch(timeBlockStoreProvider).watchByDate(date);
 });
 
 /// Reactive stream of blocks between two YYYY-MM-DD dates (inclusive).
 /// Re-fetches whenever any block is inserted, updated, or deleted.
 final timeBlocksRangeProvider =
-    StreamProvider.family<List<TimeBlock>, (String, String)>((ref, range) async* {
+    StreamProvider.family<List<TimeBlock>, (DateKey, DateKey)>((ref, range) async* {
   final store = ref.watch(timeBlockStoreProvider);
   yield await store.fetchByDateRange(range.$1, range.$2);
   await for (final _ in store.changes) {
