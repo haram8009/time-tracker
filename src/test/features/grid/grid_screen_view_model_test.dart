@@ -181,4 +181,62 @@ void main() {
       expect(store.insertedBlocks.length, 2);
     });
   });
+
+  group('GridScreenViewModel.goToDate', () {
+    late ProviderContainer container;
+
+    setUp(() {
+      final store = _FakeStore(db);
+      final port = _FakeNotificationPort();
+      container = ProviderContainer(overrides: [
+        databaseProvider.overrideWithValue(db),
+        timeBlockStoreProvider.overrideWithValue(store),
+        notificationPortProvider.overrideWithValue(port),
+        settingsServiceProvider.overrideWith(
+          (ref) => SettingsService(_FakePrefs(), port),
+        ),
+        categoryStoreProvider.overrideWithValue(_FakeCategoryStore(db)),
+      ]);
+    });
+
+    tearDown(() => container.dispose());
+
+    test('오늘 날짜 → selectedDate 업데이트', () {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final today = DateTime.now();
+      vm.goToDate(today);
+      final state = container.read(gridScreenViewModelProvider);
+      expect(state.selectedDate.year, today.year);
+      expect(state.selectedDate.month, today.month);
+      expect(state.selectedDate.day, today.day);
+    });
+
+    test('과거 날짜 → selectedDate 업데이트', () {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final past = DateTime(2024, 3, 15);
+      vm.goToDate(past);
+      final state = container.read(gridScreenViewModelProvider);
+      expect(state.selectedDate.year, 2024);
+      expect(state.selectedDate.month, 3);
+      expect(state.selectedDate.day, 15);
+    });
+
+    test('미래 날짜 → selectedDate 변경 없음', () {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final before = container.read(gridScreenViewModelProvider).selectedDate;
+      final future = DateTime.now().add(const Duration(days: 1));
+      vm.goToDate(future);
+      final after = container.read(gridScreenViewModelProvider).selectedDate;
+      expect(after.year, before.year);
+      expect(after.month, before.month);
+      expect(after.day, before.day);
+    });
+
+    test('시간 정보 제거 — selectedDate는 자정(0시)으로 정규화', () {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      vm.goToDate(DateTime(2024, 6, 1, 15, 30, 59));
+      final state = container.read(gridScreenViewModelProvider);
+      expect(state.selectedDate, DateTime(2024, 6, 1));
+    });
+  });
 }
