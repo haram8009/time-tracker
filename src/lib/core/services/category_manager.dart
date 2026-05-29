@@ -11,6 +11,8 @@ class CategoryManager {
   final CategoryStore categoryStore;
   final TimeBlockStore timeBlockStore;
 
+  Future<int> countByCategory(int id) => timeBlockStore.countByCategory(id);
+
   Future<void> deleteCategory(int id, {required bool keepRecords}) async {
     if (keepRecords) {
       await categoryStore.retire(id);

@@ -15,6 +15,11 @@ class DateKey {
     return DateKey.fromDateTime(dt);
   }
 
+  factory DateKey.fromDbString(String s) {
+    final parts = s.split('-');
+    return DateKey(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+  }
+
   static const DateKey appEpoch = DateKey(2020, 1, 1);
 
   final int year;

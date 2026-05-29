@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
+import '../../core/models/date_key.dart';
 import '../../core/models/time_block.dart';
+import '../../core/services/block_mutation_service.dart';
 import '../../core/utils/time_utils.dart';
 import 'grid_screen_view_model.dart';
 
@@ -169,8 +170,8 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
                         final id = widget.block.id;
                         if (id != null) {
                           await widget.ref
-                              .read(timeBlockStoreProvider)
-                              .delete(id);
+                              .read(blockMutationServiceProvider)
+                              .delete(id, DateKey.fromDbString(widget.block.date));
                         }
                         if (context.mounted) Navigator.of(context).pop();
                       },

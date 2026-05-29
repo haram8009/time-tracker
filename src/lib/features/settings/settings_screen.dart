@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
-import '../../core/db/time_block_store.dart';
 import '../../core/models/category.dart';
+import '../../core/services/category_manager.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
@@ -192,7 +192,6 @@ class _CategoryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.read(categoryStoreProvider);
-    final blockStore = ref.read(timeBlockStoreProvider);
 
     return Column(
       children: [
@@ -216,8 +215,7 @@ class _CategoryList extends ConsumerWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  onPressed: () =>
-                      _confirmDelete(context, store, blockStore, cat),
+                  onPressed: () => _confirmDelete(context, ref, cat),
                 ),
               ],
             ),
@@ -245,13 +243,13 @@ class _CategoryList extends ConsumerWidget {
 
   Future<void> _confirmDelete(
     BuildContext context,
-    CategoryStore store,
-    TimeBlockStore blockStore,
+    WidgetRef ref,
     Category cat,
   ) async {
     if (cat.id == null) return;
 
-    final count = await blockStore.countByCategory(cat.id!);
+    final manager = ref.read(categoryManagerProvider);
+    final count = await manager.countByCategory(cat.id!);
 
     if (!context.mounted) return;
 
@@ -294,10 +292,11 @@ class _CategoryList extends ConsumerWidget {
       ),
     );
 
-    if (choice == _DeleteChoice.withRecords) {
-      await store.deleteWithRecords(cat.id!);
-    } else if (choice == _DeleteChoice.keepRecords) {
-      await store.retire(cat.id!);
+    if (choice != null) {
+      await manager.deleteCategory(
+        cat.id!,
+        keepRecords: choice == _DeleteChoice.keepRecords,
+      );
     }
   }
 }
