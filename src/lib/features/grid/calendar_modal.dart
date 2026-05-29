@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-/// Opens a full-height bottom-sheet calendar. Calls [onDateSelected] and
-/// closes when the user taps a day. Year-view is added in #59.
+/// Opens a calendar bottom-sheet. Calls [onDateSelected] and closes on day tap.
+/// Header year-label tap → year view (12-month grid) → month tap → back to month view.
 Future<void> showCalendarModal({
   required BuildContext context,
   required DateTime selectedDate,
@@ -38,6 +38,8 @@ class _CalendarModalContent extends StatefulWidget {
 class _CalendarModalContentState extends State<_CalendarModalContent> {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
+  bool _yearViewActive = false;
+  late int _yearViewYear;
 
   static final DateTime _firstDay = DateTime(2020, 1, 1);
 
@@ -52,62 +54,187 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
     final d = widget.selectedDate;
     _selectedDay = DateTime(d.year, d.month, d.day);
     _focusedDay = _selectedDay;
+    _yearViewYear = _focusedDay.year;
+  }
+
+  void _enterYearView() {
+    setState(() {
+      _yearViewYear = _focusedDay.year;
+      _yearViewActive = true;
+    });
+  }
+
+  void _onMonthTapped(int month) {
+    setState(() {
+      _focusedDay = DateTime(_yearViewYear, month, 1);
+      _yearViewActive = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final today = _today;
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: TableCalendar<void>(
-          firstDay: _firstDay,
-          lastDay: today,
-          focusedDay: _focusedDay,
-          selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
-          calendarFormat: CalendarFormat.month,
-          availableCalendarFormats: const {CalendarFormat.month: ''},
-          startingDayOfWeek: StartingDayOfWeek.sunday,
-          onDaySelected: (selectedDay, focusedDay) {
-            if (selectedDay.isAfter(today)) return;
-            setState(() {
-              _selectedDay = selectedDay;
-              _focusedDay = focusedDay;
-            });
-            final d = DateTime(
-                selectedDay.year, selectedDay.month, selectedDay.day);
-            widget.onDateSelected(d);
-            Navigator.of(context).pop();
-          },
-          onPageChanged: (focusedDay) {
-            setState(() => _focusedDay = focusedDay);
-          },
-          calendarStyle: CalendarStyle(
-            todayDecoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.3),
-              shape: BoxShape.circle,
-            ),
-            selectedDecoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
-            outsideDaysVisible: false,
-            disabledTextStyle: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-          ),
-          headerStyle: HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-            titleTextStyle: Theme.of(context).textTheme.titleMedium!.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          enabledDayPredicate: (day) => !day.isAfter(today),
+        child: _yearViewActive ? _buildYearView(context) : _buildMonthView(context),
+      ),
+    );
+  }
+
+  Widget _buildMonthView(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final today = _today;
+
+    return TableCalendar<void>(
+      firstDay: _firstDay,
+      lastDay: today,
+      focusedDay: _focusedDay,
+      selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
+      calendarFormat: CalendarFormat.month,
+      availableCalendarFormats: const {CalendarFormat.month: ''},
+      startingDayOfWeek: StartingDayOfWeek.sunday,
+      onDaySelected: (selectedDay, focusedDay) {
+        if (selectedDay.isAfter(today)) return;
+        setState(() {
+          _selectedDay = selectedDay;
+          _focusedDay = focusedDay;
+        });
+        final d = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+        widget.onDateSelected(d);
+        Navigator.of(context).pop();
+      },
+      onPageChanged: (focusedDay) {
+        setState(() => _focusedDay = focusedDay);
+      },
+      calendarStyle: CalendarStyle(
+        todayDecoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.3),
+          shape: BoxShape.circle,
+        ),
+        selectedDecoration: BoxDecoration(
+          color: colorScheme.primary,
+          shape: BoxShape.circle,
+        ),
+        outsideDaysVisible: false,
+        disabledTextStyle: TextStyle(
+          color: colorScheme.onSurface.withValues(alpha: 0.3),
         ),
       ),
+      headerStyle: HeaderStyle(
+        formatButtonVisible: false,
+        titleCentered: false,
+        titleTextStyle:
+            Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w600),
+        // Custom left widget with tappable year label
+        leftChevronVisible: true,
+        rightChevronVisible: true,
+        headerPadding: EdgeInsets.zero,
+        titleTextFormatter: (date, locale) => '${date.year}년 ${date.month}월',
+      ),
+      calendarBuilders: CalendarBuilders(
+        headerTitleBuilder: (context, day) => GestureDetector(
+          onTap: _enterYearView,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Text(
+              '${day.year}년 ${day.month}월',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium!
+                  .copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ),
+      enabledDayPredicate: (day) => !day.isAfter(today),
+    );
+  }
+
+  Widget _buildYearView(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final today = _today;
+    final minYear = _firstDay.year;
+    final maxYear = today.year;
+    final canGoBack = _yearViewYear > minYear;
+    final canGoForward = _yearViewYear < maxYear;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Year navigation header
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.chevron_left,
+                color: canGoBack ? null : colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+              onPressed: canGoBack
+                  ? () => setState(() => _yearViewYear--)
+                  : null,
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '$_yearViewYear년',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.chevron_right,
+                color: canGoForward ? null : colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+              onPressed: canGoForward
+                  ? () => setState(() => _yearViewYear++)
+                  : null,
+            ),
+          ],
+        ),
+        // 4×3 month grid
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            childAspectRatio: 2.0,
+          ),
+          itemCount: 12,
+          itemBuilder: (context, i) {
+            final month = i + 1;
+            final isDisabled = _yearViewYear == today.year && month > today.month;
+            final isCurrent = _yearViewYear == _focusedDay.year && month == _focusedDay.month;
+
+            return GestureDetector(
+              onTap: isDisabled ? null : () => _onMonthTapped(month),
+              child: Container(
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isCurrent ? colorScheme.primary : null,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$month월',
+                  style: TextStyle(
+                    color: isDisabled
+                        ? colorScheme.onSurface.withValues(alpha: 0.3)
+                        : isCurrent
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurface,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
