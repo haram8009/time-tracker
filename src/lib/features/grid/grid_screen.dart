@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
+import '../../core/logic/grid_layout_calculator.dart';
 import '../../core/models/date_key.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
@@ -10,6 +10,7 @@ import '../../core/services/photo_library_service.dart';
 import 'category_bottom_sheet.dart';
 import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
+import 'grid_gesture_handler.dart';
 import 'grid_screen_view_model.dart';
 import 'calendar_modal.dart';
 import 'grid_view_model.dart';
@@ -28,6 +29,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   late final ScrollController _scrollController;
   late final PageController _pageController;
   late final DragSelectionController _drag;
+  late final GridLayoutCalculator _calculator;
+  late final GridGestureHandler _gestureHandler;
 
   bool _isDragging = false;
   bool _isProgrammaticJump = false;
@@ -43,65 +46,37 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     _drag = DragSelectionController();
     _drag.addListener(() => setState(() {}));
 
-    final initialPage = DateKey.today().toPage(DateKey.appEpoch);
-    _pageController = PageController(initialPage: initialPage);
-  }
+    _calculator = const GridLayoutCalculator(
+      columnCount: 6,
+      cellHeight: _kCellHeight,
+      timeLabelWidth: _kTimeLabelWidth,
+    );
 
-  int _positionToCellIndex(Offset localPos) {
-    final rowIndex = (localPos.dy / _kCellHeight).floor().clamp(0, 23);
-    final availableWidth = MediaQuery.of(context).size.width - _kTimeLabelWidth;
-    final cellWidth = availableWidth / 6;
-    final colIndex =
-        ((localPos.dx - _kTimeLabelWidth) / cellWidth).floor().clamp(0, 5);
-    return (rowIndex * 6 + colIndex).clamp(0, 143);
-  }
-
-  void _onLongPressStart(LongPressStartDetails details) {
-    if (details.localPosition.dx < _kTimeLabelWidth) return;
-    HapticFeedback.mediumImpact();
-    _drag.onDragStart(_positionToCellIndex(details.localPosition));
-    setState(() => _isDragging = true);
-  }
-
-  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
-    if (!_isDragging) return;
-    _drag.onDragUpdate(_positionToCellIndex(details.localPosition));
-  }
-
-  void _onLongPressEnd(LongPressEndDetails details) {
-    if (!_isDragging) return;
-    _drag.onDragEnd();
-    setState(() => _isDragging = false);
-    final sel = _drag.selection;
-    if (sel != null) {
-      showCategoryBottomSheet(
+    _gestureHandler = GridGestureHandler(
+      calculator: _calculator,
+      drag: _drag,
+      onDraggingChanged: (v) => setState(() => _isDragging = v),
+      onSelectionComplete: (sel) => showCategoryBottomSheet(
         context,
         ref,
         _currentDateKey,
         sel.startMinute,
         sel.endMinute,
-      ).then((_) => _drag.clearSelection());
-    }
-  }
+      ).then((_) => _drag.clearSelection()),
+      onSelectionCancelled: () {},
+    );
 
-  void _onLongPressCancel() {
-    if (_isDragging) {
-      _drag.onDragCancel();
-      setState(() => _isDragging = false);
-    }
+    final initialPage = DateKey.today().toPage(DateKey.appEpoch);
+    _pageController = PageController(initialPage: initialPage);
   }
 
   void _scrollToNow() {
     if (!_scrollController.hasClients) return;
     final now = DateTime.now();
     final idx = GridViewModel.minuteToIndex(now.hour * 60 + now.minute);
-    final rowIndex = idx ~/ 6;
     final screenH = MediaQuery.of(context).size.height;
     final topPad = MediaQuery.of(context).padding.top + 56;
-    final offset = (rowIndex * _kCellHeight - (screenH - topPad) / 2).clamp(
-      0.0,
-      double.infinity,
-    );
+    final offset = _calculator.scrollTargetForIndex(idx, screenH, topPad);
     _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 400),
@@ -128,6 +103,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _gestureHandler.gridSize = MediaQuery.of(context).size;
+
     final todayPage = DateKey.today().toPage(DateKey.appEpoch);
 
     // Sync PageController when selectedDate changes externally (e.g. WeekStrip, CalendarModal)
@@ -242,13 +219,18 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                     kTimeLabelWidth: _kTimeLabelWidth,
                     kCellHeight: _kCellHeight,
                     onCurrentDateKey: (key) => _currentDateKey = key,
-                    onLongPressStart: _onLongPressStart,
-                    onLongPressMoveUpdate: _onLongPressMoveUpdate,
-                    onLongPressEnd: _onLongPressEnd,
-                    onLongPressCancel: _onLongPressCancel,
+                    onLongPressStart: _gestureHandler.handleLongPressStart,
+                    onLongPressMoveUpdate: _gestureHandler.handleLongPressMoveUpdate,
+                    onLongPressEnd: _gestureHandler.handleLongPressEnd,
+                    onLongPressCancel: _gestureHandler.handleLongPressCancel,
                   );
                 },
               ),
+            ),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom,
             ),
           ),
         ],
