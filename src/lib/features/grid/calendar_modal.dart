@@ -12,6 +12,7 @@ Future<void> showCalendarModal({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -75,6 +76,7 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: _yearViewActive ? _buildYearView(context) : _buildMonthView(context),
@@ -137,12 +139,23 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
           onTap: _enterYearView,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Text(
-              '${day.year}년 ${day.month}월',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium!
-                  .copyWith(fontWeight: FontWeight.w600),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${day.year}년 ${day.month}월',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ],
             ),
           ),
         ),
