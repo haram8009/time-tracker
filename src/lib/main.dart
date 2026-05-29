@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/db/database_helper.dart';
+import 'core/models/time_block_style.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/services/appearance_service.dart';
 import 'core/theme/app_theme.dart';
@@ -57,14 +58,14 @@ class TimeTrackerApp extends ConsumerWidget {
   }
 }
 
-class _RootShell extends StatefulWidget {
+class _RootShell extends ConsumerStatefulWidget {
   const _RootShell();
 
   @override
-  State<_RootShell> createState() => _RootShellState();
+  ConsumerState<_RootShell> createState() => _RootShellState();
 }
 
-class _RootShellState extends State<_RootShell> {
+class _RootShellState extends ConsumerState<_RootShell> {
   int _index = 0;
 
   static const _screens = [GridScreen(), AnalyticsScreen(), SettingsScreen()];
@@ -72,7 +73,11 @@ class _RootShellState extends State<_RootShell> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
+    final blockStyle = ref.watch(appearanceServiceProvider);
+    final isGlass = blockStyle == TimeBlockStyle.liquidGlass;
+
+    final scaffold = Scaffold(
+      backgroundColor: isGlass ? Colors.transparent : null,
       extendBody: true,
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: ClipRect(
@@ -94,6 +99,20 @@ class _RootShellState extends State<_RootShell> {
             ],
           ),
         ),
+      ),
+    );
+
+    if (!isGlass) return scaffold;
+
+    final gradient = isDark
+        ? AppTheme.ambientGradientDark
+        : AppTheme.ambientGradientLight;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: gradient),
+      child: Theme(
+        data: Theme.of(context).copyWith(scaffoldBackgroundColor: Colors.transparent),
+        child: scaffold,
       ),
     );
   }

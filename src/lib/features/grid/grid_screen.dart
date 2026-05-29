@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
+import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/services/photo_library_service.dart';
 import '../../core/utils/time_utils.dart';
@@ -13,7 +14,6 @@ import 'grid_screen_view_model.dart';
 import 'calendar_modal.dart';
 import 'grid_view_model.dart';
 import 'week_strip.dart';
-import 'widgets/glass_ambient_background.dart';
 import 'widgets/grid_cell.dart';
 import 'widgets/time_block_overlay.dart';
 
@@ -175,6 +175,10 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     }
 
     final selectedDate = vmState.selectedDate;
+    final isGlass = blockStyle == TimeBlockStyle.liquidGlass;
+    final weekStripBg = isGlass
+        ? Colors.transparent
+        : Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
       body: CustomScrollView(
@@ -219,6 +223,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             pinned: true,
             delegate: _WeekStripDelegate(
               selectedDate: selectedDate,
+              backgroundColor: weekStripBg,
               onDateSelected: (date) {
                 vm.goToDate(date);
                 _drag.clearSelection();
@@ -314,9 +319,7 @@ class _GridPage extends ConsumerWidget {
             photos: photosAsync.valueOrNull ?? const [],
             selectedIndices: drag.selectedIndices,
           );
-          return GlassAmbientBackground(
-            brightness: Theme.of(context).brightness,
-            child: GestureDetector(
+          return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onLongPressStart: onLongPressStart,
             onLongPressMoveUpdate: onLongPressMoveUpdate,
@@ -404,7 +407,6 @@ class _GridPage extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
           );
         },
       ),
@@ -416,10 +418,12 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
   const _WeekStripDelegate({
     required this.selectedDate,
     required this.onDateSelected,
+    required this.backgroundColor,
   });
 
   final DateTime selectedDate;
   final void Function(DateTime) onDateSelected;
+  final Color backgroundColor;
 
   @override
   double get minExtent => WeekStrip.height;
@@ -431,7 +435,7 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: backgroundColor,
       child: WeekStrip(
         selectedDate: selectedDate,
         onDateSelected: onDateSelected,
@@ -441,5 +445,5 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_WeekStripDelegate old) =>
-      selectedDate != old.selectedDate;
+      selectedDate != old.selectedDate || backgroundColor != old.backgroundColor;
 }
