@@ -88,7 +88,6 @@ class BlockRenderer extends StatelessWidget {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.50),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.35),
@@ -98,8 +97,11 @@ class BlockRenderer extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.12),
-                Colors.transparent,
+                Color.alphaBlend(
+                  Colors.white.withValues(alpha: 0.18),
+                  color.withValues(alpha: 0.32),
+                ),
+                color.withValues(alpha: 0.28),
               ],
             ),
           ),
