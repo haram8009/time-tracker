@@ -33,7 +33,7 @@ class _CellBody extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1.0),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
         ),
       ),
       child: Stack(
@@ -41,7 +41,7 @@ class _CellBody extends StatelessWidget {
         children: [
           if (state.isSelected)
             Container(
-              color: Colors.blue.withValues(alpha: 0.3),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
             ),
           if (state.thumbnails.isNotEmpty)
             Positioned(

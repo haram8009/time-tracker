@@ -64,13 +64,14 @@ class SettingsScreen extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     final blockStyle = ref.watch(appearanceServiceProvider);
     final appearanceSvc = ref.read(appearanceServiceProvider.notifier);
+    final themeMode = ref.watch(themeModeServiceProvider);
+    final themeModeSvc = ref.read(themeModeServiceProvider.notifier);
 
     final analytics = ref.read(analyticsViewModelProvider.notifier);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('설정'),
       ),
       body: ListView(
@@ -81,7 +82,7 @@ class SettingsScreen extends ConsumerWidget {
             value: settings.enabled,
             onChanged: (v) => svc.setEnabled(v),
           ),
-          const Divider(),
+          const Divider(indent: 16, endIndent: 16),
           _TimePickerTile(
             label: '취침 시작',
             minuteFromMidnight: settings.sleepStartMinute,
@@ -94,7 +95,7 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (m) => svc.setSleepEnd(m),
             enabled: settings.enabled,
           ),
-          const Divider(),
+          const Divider(indent: 16, endIndent: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
@@ -126,7 +127,7 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const Divider(),
+          const Divider(indent: 16, endIndent: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
@@ -138,25 +139,19 @@ class SettingsScreen extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: DropdownButtonFormField<TimeBlockStyle>(
-              initialValue: blockStyle,
-              decoration: const InputDecoration(
-                labelText: '타임블록 스타일',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: const [
-                DropdownMenuItem(value: TimeBlockStyle.tintBar, child: Text('틴트 + 왼쪽 바')),
-                DropdownMenuItem(value: TimeBlockStyle.card, child: Text('카드')),
-                DropdownMenuItem(value: TimeBlockStyle.roundedTint, child: Text('둥근 틴트')),
-                DropdownMenuItem(value: TimeBlockStyle.liquidGlass, child: Text('Liquid Glass')),
-              ],
-              onChanged: (v) {
-                if (v != null) appearanceSvc.setBlockStyle(v);
-              },
+            child: _ThemeModeToggle(
+              value: themeMode,
+              onChanged: themeModeSvc.setThemeMode,
             ),
           ),
-          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: _BlockStylePicker(
+              value: blockStyle,
+              onChanged: appearanceSvc.setBlockStyle,
+            ),
+          ),
+          const Divider(indent: 16, endIndent: 16),
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -373,7 +368,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                     shape: BoxShape.circle,
                     border: selected
                         ? Border.all(
-                            color: Colors.black87,
+                            color: Theme.of(context).colorScheme.primary,
                             width: 2.5,
                           )
                         : null,
@@ -460,6 +455,213 @@ class _TimePickerTile extends StatelessWidget {
           onChanged(picked.hour * 60 + picked.minute);
         }
       },
+    );
+  }
+}
+
+class _BlockStylePicker extends StatelessWidget {
+  final TimeBlockStyle value;
+  final ValueChanged<TimeBlockStyle> onChanged;
+
+  const _BlockStylePicker({required this.value, required this.onChanged});
+
+  static const _options = [
+    (TimeBlockStyle.tintBar, '틴트 + 바'),
+    (TimeBlockStyle.card, '카드'),
+    (TimeBlockStyle.roundedTint, '둥근 틴트'),
+    (TimeBlockStyle.liquidGlass, 'Glass'),
+  ];
+
+  static const _previewColors = [
+    Color(0xFF4ECDC4),
+    Color(0xFFFF6B6B),
+    Color(0xFF5856D6),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF2C2C2E) : Colors.white;
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return SizedBox(
+      height: 106,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: _options.length,
+        separatorBuilder: (context, i) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final (style, label) = _options[i];
+          final selected = value == style;
+          return GestureDetector(
+            onTap: () => onChanged(style),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 80,
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected ? primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(7, 8, 7, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _MiniBlock(
+                            style: style,
+                            color: _previewColors[0],
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Expanded(
+                          flex: 2,
+                          child: _MiniBlock(
+                            style: style,
+                            color: _previewColors[1],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w400,
+                      color: selected ? primary : const Color(0xFF8E8E93),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MiniBlock extends StatelessWidget {
+  final TimeBlockStyle style;
+  final Color color;
+
+  const _MiniBlock({required this.style, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (style) {
+      case TimeBlockStyle.tintBar:
+        return Container(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(3),
+            border: Border(left: BorderSide(color: color, width: 2)),
+          ),
+        );
+      case TimeBlockStyle.card:
+        return Container(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+        );
+      case TimeBlockStyle.roundedTint:
+        return Container(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+      case TimeBlockStyle.liquidGlass:
+        return Container(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+        );
+    }
+  }
+}
+
+class _ThemeModeToggle extends StatelessWidget {
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  const _ThemeModeToggle({required this.value, required this.onChanged});
+
+  static const _options = [
+    (ThemeMode.system, '시스템'),
+    (ThemeMode.light, '라이트'),
+    (ThemeMode.dark, '다크'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final trackBg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+    final activeBg = isDark ? Colors.white : Colors.black;
+    final activeText = isDark ? Colors.black : Colors.white;
+    final inactiveText = isDark ? Colors.white : const Color(0xFF1C1C1E);
+
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: trackBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: _options.map((opt) {
+          final (mode, label) = opt;
+          final selected = value == mode;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(mode),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                decoration: BoxDecoration(
+                  color: selected ? activeBg : Colors.transparent,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? activeText : inactiveText,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

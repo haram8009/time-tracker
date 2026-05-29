@@ -44,10 +44,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: const Text('분석'),
         bottom: TabBar(
           controller: _tab,
+          dividerColor: Theme.of(context).dividerColor,
           tabs: const [Tab(text: '일'), Tab(text: '주'), Tab(text: '월'), Tab(text: '히트맵')],
         ),
       ),

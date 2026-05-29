@@ -217,18 +217,14 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                         _isToday(selectedDate)
                             ? '오늘'
                             : '${d.month}월 ${d.day}일 (${days[d.weekday - 1]})',
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
+                        style: Theme.of(context).textTheme.headlineLarge,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         dateLabel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: Color(0xFF8E8E93),
                         ),
                       ),
                     ],
@@ -281,9 +277,9 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                                     padding: const EdgeInsets.only(right: 6),
                                     child: Text(
                                       '${rowIndex.toString().padLeft(2, '0')}:00',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 10,
-                                        color: Colors.grey.shade600,
+                                        color: Color(0xFF8E8E93),
                                         height: 1,
                                       ),
                                     ),

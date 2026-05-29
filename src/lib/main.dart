@@ -1,9 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/db/database_helper.dart';
 import 'core/notifications/notification_port.dart';
+import 'core/services/appearance_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/notifications/notification_scheduler.dart';
 import 'core/notifications/notification_settings.dart';
@@ -39,16 +41,17 @@ void main() async {
   ));
 }
 
-class TimeTrackerApp extends StatelessWidget {
+class TimeTrackerApp extends ConsumerWidget {
   const TimeTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeServiceProvider);
     return MaterialApp(
       title: 'Time Tracker',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       home: const _RootShell(),
     );
   }
@@ -70,17 +73,27 @@ class _RootShellState extends State<_RootShell> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: CupertinoTabBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        activeColor: isDark ? Colors.white : Colors.black,
-        inactiveColor: const Color(0xFFC7C7CC),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: '기록'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '분석'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
-        ],
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: CupertinoTabBar(
+            currentIndex: _index,
+            onTap: (i) => setState(() => _index = i),
+            activeColor: isDark ? Colors.white : Colors.black,
+            inactiveColor: const Color(0xFFC7C7CC),
+            backgroundColor: isDark
+                ? const Color(0xFF1C1C1E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
+            border: null,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: '기록'),
+              BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '분석'),
+              BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
+            ],
+          ),
+        ),
       ),
     );
   }
