@@ -1,6 +1,34 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  static const ambientGradientDark = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF2A1F3D),
+      Color(0xFF1A2A3A),
+      Color(0xFF1C2E1C),
+    ],
+  );
+
+  static const ambientGradientLight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEDE7F6),
+      Color(0xFFE0F2F1),
+      Color(0xFFFFF3E0),
+    ],
+  );
+
+  // saturate(180%) CSS filter equivalent — 4×5 row-major color matrix
+  static const glassColorMatrix = ColorFilter.matrix(<double>[
+    1.6296, -0.5720, -0.0576, 0, 0,
+    -0.1704,  1.2280, -0.0576, 0, 0,
+    -0.1704, -0.5720,  1.7424, 0, 0,
+    0,        0,        0,      1, 0,
+  ]);
+
   static const _textTheme = TextTheme(
     headlineLarge: TextStyle(
       fontSize: 26,
