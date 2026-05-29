@@ -59,7 +59,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         bottom: TabBar(
           controller: _tab,
           dividerColor: Theme.of(context).dividerColor,
-          tabs: const [Tab(text: '일'), Tab(text: '주'), Tab(text: '월'), Tab(text: '히트맵')],
+          tabs: const [
+            Tab(text: '일'),
+            Tab(text: '주'),
+            Tab(text: '월'),
+            Tab(text: '히트맵'),
+          ],
         ),
       ),
       body: TabBarView(
@@ -145,7 +150,13 @@ class _PeriodView extends ConsumerWidget {
                   final color = hexToColor(s.category.colorHex);
                   final pct = (s.fraction(total) * 100).toStringAsFixed(1);
                   return PieChartSectionData(
-                    color: isGlass ? color.withValues(alpha: 0.85) : color,
+                    borderSide: isGlass
+                        ? BorderSide(
+                            color: Colors.white.withValues(alpha: 0.32),
+                            width: 1,
+                          )
+                        : BorderSide.none,
+                    color: isGlass ? color.withValues(alpha: 0.75) : color,
                     value: s.totalMinutes.toDouble(),
                     title: isTouched ? '$pct%' : '',
                     radius: isTouched ? 80 : 64,
@@ -171,20 +182,20 @@ class _PeriodView extends ConsumerWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.20),
+                            color: Colors.white.withValues(alpha: 0.32),
                             width: 1,
                           ),
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Colors.white.withValues(alpha: 0.12),
-                              Colors.white.withValues(alpha: 0.05),
+                              Colors.white.withValues(alpha: 0.22),
+                              Colors.white.withValues(alpha: 0.10),
                             ],
                           ),
                         ),
@@ -277,7 +288,7 @@ class _HeatmapView extends ConsumerWidget {
               const numCells = 24;
               final cellWidth =
                   ((constraints.maxWidth - 32 - labelWidth) / numCells) -
-                      cellMargin;
+                  cellMargin;
               final clampedCell = cellWidth.clamp(8.0, 20.0);
 
               return SingleChildScrollView(
@@ -323,7 +334,9 @@ class _HeatmapView extends ConsumerWidget {
                             if (cell.isEmpty || cell.dominantCategory == null) {
                               cellColor = emptyColor;
                             } else {
-                              final base = hexToColor(cell.dominantCategory!.colorHex);
+                              final base = hexToColor(
+                                cell.dominantCategory!.colorHex,
+                              );
                               final maxAlpha = isGlass ? 0.75 : 1.0;
                               cellColor = Color.lerp(
                                 base.withValues(alpha: isGlass ? 0.12 : 0.15),
@@ -345,39 +358,46 @@ class _HeatmapView extends ConsumerWidget {
                       );
                     }),
                     const SizedBox(height: 12),
-                    Builder(builder: (context) {
-                      final activeCategories = <int, Category>{};
-                      for (final row in matrix) {
-                        for (final cell in row) {
-                          final cat = cell.dominantCategory;
-                          if (cat != null && cat.id != null) {
-                            activeCategories[cat.id!] = cat;
+                    Builder(
+                      builder: (context) {
+                        final activeCategories = <int, Category>{};
+                        for (final row in matrix) {
+                          for (final cell in row) {
+                            final cat = cell.dominantCategory;
+                            if (cat != null && cat.id != null) {
+                              activeCategories[cat.id!] = cat;
+                            }
                           }
                         }
-                      }
-                      if (activeCategories.isEmpty) return const SizedBox.shrink();
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: activeCategories.values.map((cat) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                margin: const EdgeInsets.only(right: 4),
-                                decoration: BoxDecoration(
-                                  color: hexToColor(cat.colorHex),
-                                  borderRadius: BorderRadius.circular(2),
+                        if (activeCategories.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: activeCategories.values.map((cat) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  margin: const EdgeInsets.only(right: 4),
+                                  decoration: BoxDecoration(
+                                    color: hexToColor(cat.colorHex),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
-                              ),
-                              Text(cat.name, style: const TextStyle(fontSize: 11)),
-                            ],
-                          );
-                        }).toList(),
-                      );
-                    }),
+                                Text(
+                                  cat.name,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                   ],
                 ),
               );
