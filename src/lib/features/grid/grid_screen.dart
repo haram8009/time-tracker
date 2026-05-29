@@ -10,7 +10,9 @@ import 'category_bottom_sheet.dart';
 import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
 import 'grid_screen_view_model.dart';
+import 'calendar_modal.dart';
 import 'grid_view_model.dart';
+import 'week_strip.dart';
 import 'widgets/grid_cell.dart';
 import 'widgets/time_block_overlay.dart';
 
@@ -185,9 +187,14 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             scrolledUnderElevation: 0,
             automaticallyImplyLeading: false,
             title: TextButton(
-              onPressed: () {
-                // TODO: Open CalendarModal (#58)
-              },
+              onPressed: () => showCalendarModal(
+                context: context,
+                selectedDate: selectedDate,
+                onDateSelected: (date) {
+                  vm.goToDate(date);
+                  _drag.clearSelection();
+                },
+              ),
               child: Text(
                 '${selectedDate.year}년 ${selectedDate.month}월',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -206,6 +213,16 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                   child: const Text('오늘', style: TextStyle(fontSize: 14)),
                 ),
             ],
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _WeekStripDelegate(
+              selectedDate: selectedDate,
+              onDateSelected: (date) {
+                vm.goToDate(date);
+                _drag.clearSelection();
+              },
+            ),
           ),
           SliverToBoxAdapter(
             child: SizedBox(
@@ -389,4 +406,36 @@ class _GridPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
+  const _WeekStripDelegate({
+    required this.selectedDate,
+    required this.onDateSelected,
+  });
+
+  final DateTime selectedDate;
+  final void Function(DateTime) onDateSelected;
+
+  @override
+  double get minExtent => WeekStrip.height;
+
+  @override
+  double get maxExtent => WeekStrip.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: WeekStrip(
+        selectedDate: selectedDate,
+        onDateSelected: onDateSelected,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_WeekStripDelegate old) =>
+      selectedDate != old.selectedDate;
 }
