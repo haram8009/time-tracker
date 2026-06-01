@@ -17,6 +17,8 @@ import 'calendar_modal.dart';
 import 'grid_view_model.dart';
 import 'week_strip.dart';
 import 'widgets/grid_cell.dart';
+import 'widgets/drag_selection_overlay.dart';
+import 'widgets/photo_thumbnail_overlay.dart';
 import 'widgets/time_block_overlay.dart';
 
 class GridScreen extends ConsumerStatefulWidget {
@@ -323,6 +325,16 @@ class _GridPage extends ConsumerWidget {
                   blocks: dbBlocks,
                   categories: categories,
                   style: blockStyle,
+                  cellHeight: kCellHeight,
+                  timeLabelWidth: kTimeLabelWidth,
+                ),
+                DragSelectionOverlay(
+                  selectedIndices: dragState.value.selectedIndices,
+                  cellHeight: kCellHeight,
+                  timeLabelWidth: kTimeLabelWidth,
+                ),
+                PhotoThumbnailOverlay(
+                  cells: cells,
                   cellHeight: kCellHeight,
                   timeLabelWidth: kTimeLabelWidth,
                 ),

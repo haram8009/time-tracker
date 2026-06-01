@@ -15,7 +15,9 @@ class GridCoordinator {
     required void Function(DateKey) onDateChanged,
     required void Function(DragSelection) onSelectionComplete,
   }) : _calculator = calculator,
+       // ignore: prefer_initializing_formals
        _onDateChanged = onDateChanged,
+       // ignore: prefer_initializing_formals
        _onSelectionComplete = onSelectionComplete {
     _gestureHandler = GridGestureHandler(
       calculator: calculator,
