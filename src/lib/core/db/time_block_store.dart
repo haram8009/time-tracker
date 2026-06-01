@@ -93,13 +93,13 @@ class TimeBlockStore {
       final prevRows = await txn.query(
         'time_blocks',
         where: 'date = ? AND categoryId = ? AND endMinute = ?',
-        whereArgs: [block.date, block.categoryId, block.startMinute],
+        whereArgs: [block.date.toDbString(), block.categoryId, block.startMinute],
         limit: 1,
       );
       final nextRows = await txn.query(
         'time_blocks',
         where: 'date = ? AND categoryId = ? AND startMinute = ?',
-        whereArgs: [block.date, block.categoryId, block.endMinute],
+        whereArgs: [block.date.toDbString(), block.categoryId, block.endMinute],
         limit: 1,
       );
 
@@ -136,8 +136,7 @@ class TimeBlockStore {
   /// Replaces [startMinute, endMinute) with [block], handling all overlap cases
   /// and merging adjacent same-category blocks (ADR-0002).
   Future<TimeBlock> replaceRange(TimeBlock block) async {
-    final dateParts = block.date.split('-');
-    final existing = await fetchByDate(DateKey(int.parse(dateParts[0]), int.parse(dateParts[1]), int.parse(dateParts[2])));
+    final existing = await fetchByDate(block.date);
     final ops = applyBlockReplace(existing, block);
 
     await _db.transaction((txn) async {
@@ -180,19 +179,17 @@ class TimeBlockStore {
     );
     await _db.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
     if (rows.isNotEmpty) {
-      await _notify(rows.first['date'] as String);
+      await _notify(DateKey.fromDbString(rows.first['date'] as String));
     }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  Future<void> _notify(String date) async {
+  Future<void> _notify(DateKey date) async {
     if (!_changesController.isClosed) _changesController.add(null);
-    final controller = _controllers[date];
+    final controller = _controllers[date.toDbString()];
     if (controller == null || controller.isClosed) return;
-    final parts = date.split('-');
-    final key = DateKey(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-    final list = await fetchByDate(key);
+    final list = await fetchByDate(date);
     controller.add(list);
   }
 

@@ -25,7 +25,7 @@ class BlockMutationService {
 
   Future<void> delete(int id, DateKey date) async {
     await store.delete(id);
-    await _rescheduleIfToday(date.toDbString());
+    await _rescheduleIfToday(date);
   }
 
   Future<void> update(TimeBlock block) async {
@@ -33,9 +33,8 @@ class BlockMutationService {
     await _rescheduleIfToday(block.date);
   }
 
-  Future<void> _rescheduleIfToday(String dateStr) async {
-    final todayKey = DateKey.today().toDbString();
-    if (dateStr == todayKey) {
+  Future<void> _rescheduleIfToday(DateKey date) async {
+    if (date == DateKey.today()) {
       final todayBlocks = await store.fetchByDate(DateKey.today());
       await scheduleSmartNotification(
         todayBlocks: todayBlocks,

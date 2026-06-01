@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 
 void main() {
@@ -11,7 +12,7 @@ void main() {
       // 9:00 = minute 540 -> cellIdx 54 -> row 9 -> top = 9 * 32 = 288
       final block = TimeBlock(
         id: 1,
-        date: '2024-01-01',
+        date: DateKey(2024, 1, 1),
         startMinute: 540,
         endMinute: 600,
         categoryId: 1,
@@ -24,7 +25,7 @@ void main() {
       // 9:00-10:00 = 6 cells all in row 9. One segment, height = cellHeight.
       final block = TimeBlock(
         id: 1,
-        date: '2024-01-01',
+        date: DateKey(2024, 1, 1),
         startMinute: 540,
         endMinute: 600,
         categoryId: 1,
@@ -47,7 +48,7 @@ void main() {
       // cells 60-66: row 10 (cols 0-5) + row 11 (col 0)
       final block = TimeBlock(
         id: 1,
-        date: '2024-01-01',
+        date: DateKey(2024, 1, 1),
         startMinute: 600,
         endMinute: 670,
         categoryId: 1,

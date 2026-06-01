@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/core/logic/block_replace_reducer.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 
-const _date = '2026-05-27';
+final _date = DateKey(2026, 5, 27);
 
 TimeBlock _block({
   required int start,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/models/category.dart';
+import '../../core/models/date_key.dart';
 import '../../core/models/time_block.dart';
 import '../../core/utils/time_utils.dart';
 import 'grid_screen_view_model.dart';
@@ -14,7 +15,7 @@ const _colorPalette = [
 Future<void> showCategoryBottomSheet(
   BuildContext context,
   WidgetRef ref,
-  String date,
+  DateKey date,
   int startMinute,
   int endMinute,
 ) {
@@ -33,7 +34,7 @@ Future<void> showCategoryBottomSheet(
 }
 
 class _CategoryBottomSheet extends ConsumerStatefulWidget {
-  final String date;
+  final DateKey date;
   final int startMinute;
   final int endMinute;
 

@@ -1,6 +1,8 @@
+import 'date_key.dart';
+
 class TimeBlock {
   final int? id;
-  final String date; // "YYYY-MM-DD"
+  final DateKey date;
   final int startMinute; // 0-1440, 10분 단위
   final int endMinute; // 0-1440, 10분 단위
   final int categoryId;
@@ -17,7 +19,7 @@ class TimeBlock {
 
   TimeBlock copyWith({
     int? id,
-    String? date,
+    DateKey? date,
     int? startMinute,
     int? endMinute,
     int? categoryId,
@@ -36,7 +38,7 @@ class TimeBlock {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
-      'date': date,
+      'date': date.toDbString(),
       'startMinute': startMinute,
       'endMinute': endMinute,
       'categoryId': categoryId,
@@ -47,7 +49,7 @@ class TimeBlock {
   factory TimeBlock.fromMap(Map<String, dynamic> map) {
     return TimeBlock(
       id: map['id'] as int?,
-      date: map['date'] as String,
+      date: DateKey.fromDbString(map['date'] as String),
       startMinute: map['startMinute'] as int,
       endMinute: map['endMinute'] as int,
       categoryId: map['categoryId'] as int,

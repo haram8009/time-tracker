@@ -34,7 +34,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
   bool _isDragging = false;
   bool _isProgrammaticJump = false;
-  String _currentDateKey = '';
+  DateKey _currentDateKey = DateKey.today();
 
   static const double _kTimeLabelWidth = 48.0;
   static const double _kCellHeight = 48.0;
@@ -261,7 +261,7 @@ class _GridPage extends ConsumerWidget {
   final dynamic blockStyle;
   final double kTimeLabelWidth;
   final double kCellHeight;
-  final ValueChanged<String> onCurrentDateKey;
+  final ValueChanged<DateKey> onCurrentDateKey;
   final GestureLongPressStartCallback onLongPressStart;
   final GestureLongPressMoveUpdateCallback onLongPressMoveUpdate;
   final GestureLongPressEndCallback onLongPressEnd;
@@ -281,7 +281,7 @@ class _GridPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (categories) {
           final photosAsync = ref.watch(photosForDateProvider(date.toDateTime()));
-          onCurrentDateKey(date.toDbString());
+          onCurrentDateKey(date);
           final cells = GridViewModel.compute(
             blocks: dbBlocks,
             categories: categories,
@@ -350,7 +350,7 @@ class _GridPage extends ConsumerWidget {
                                             showCategoryBottomSheet(
                                               context,
                                               ref,
-                                              date.toDbString(),
+                                              date,
                                               sel.startMinute,
                                               sel.endMinute,
                                             ).then(

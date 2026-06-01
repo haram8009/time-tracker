@@ -62,7 +62,7 @@ void main() {
     test('insert and fetchByDate returns the inserted block', () async {
       final store = TimeBlockStore(db);
       const block = TimeBlock(
-        date: '2026-05-27',
+        date: DateKey(2026, 5, 27),
         startMinute: 480,
         endMinute: 540,
         categoryId: 1,
@@ -72,7 +72,7 @@ void main() {
       final inserted = await store.insert(block);
 
       expect(inserted.id, isNotNull);
-      expect(inserted.date, '2026-05-27');
+      expect(inserted.date, DateKey(2026, 5, 27));
       expect(inserted.startMinute, 480);
       expect(inserted.endMinute, 540);
       expect(inserted.note, 'morning work');
@@ -92,7 +92,7 @@ void main() {
       final store = TimeBlockStore(db);
       final inserted = await store.insert(
         const TimeBlock(
-          date: '2026-05-27',
+          date: DateKey(2026, 5, 27),
           startMinute: 60,
           endMinute: 120,
           categoryId: 1,
@@ -112,7 +112,7 @@ void main() {
       final store = TimeBlockStore(db);
       final inserted = await store.insert(
         const TimeBlock(
-          date: '2026-05-27',
+          date: DateKey(2026, 5, 27),
           startMinute: 200,
           endMinute: 260,
           categoryId: 1,
@@ -130,7 +130,7 @@ void main() {
       final store = TimeBlockStore(db);
       await store.insert(
         const TimeBlock(
-          date: '2026-05-27',
+          date: DateKey(2026, 5, 27),
           startMinute: 600,
           endMinute: 660,
           categoryId: 1,
@@ -138,7 +138,7 @@ void main() {
       );
       await store.insert(
         const TimeBlock(
-          date: '2026-05-27',
+          date: DateKey(2026, 5, 27),
           startMinute: 120,
           endMinute: 180,
           categoryId: 1,
@@ -162,13 +162,13 @@ void main() {
           {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
       await store.insert(const TimeBlock(
-        date: '2026-01-01', startMinute: 0, endMinute: 10, categoryId: 1,
+        date: DateKey(2026, 1, 1), startMinute: 0, endMinute: 10, categoryId: 1,
       ));
       await store.insert(const TimeBlock(
-        date: '2026-01-01', startMinute: 10, endMinute: 20, categoryId: 1,
+        date: DateKey(2026, 1, 1), startMinute: 10, endMinute: 20, categoryId: 1,
       ));
       await store.insert(const TimeBlock(
-        date: '2026-01-01', startMinute: 20, endMinute: 30, categoryId: 2,
+        date: DateKey(2026, 1, 1), startMinute: 20, endMinute: 30, categoryId: 2,
       ));
 
       expect(await store.countByCategory(1), 2);
@@ -178,7 +178,7 @@ void main() {
     test('mergeOrInsert – no adjacent blocks: plain insert', () async {
       final store = TimeBlockStore(db);
       final result = await store.mergeOrInsert(const TimeBlock(
-        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
       ));
       expect(result.id, isNotNull);
       final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -190,10 +190,10 @@ void main() {
     test('mergeOrInsert – prev adjacent same category: extends prev', () async {
       final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
       ));
       await store.mergeOrInsert(const TimeBlock(
-        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
       ));
       final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
@@ -204,10 +204,10 @@ void main() {
     test('mergeOrInsert – next adjacent same category: extends next', () async {
       final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 110, endMinute: 130, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 110, endMinute: 130, categoryId: 1,
       ));
       await store.mergeOrInsert(const TimeBlock(
-        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
       ));
       final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
@@ -218,13 +218,13 @@ void main() {
     test('mergeOrInsert – both adjacent same category: merges three into one', () async {
       final store = TimeBlockStore(db);
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
       ));
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 110, endMinute: 130, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 110, endMinute: 130, categoryId: 1,
       ));
       await store.mergeOrInsert(const TimeBlock(
-        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
       ));
       final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 1);
@@ -237,10 +237,10 @@ void main() {
       await db.insert('categories', {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 80, endMinute: 100, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
       ));
       await store.mergeOrInsert(const TimeBlock(
-        date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 2,
+        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 2,
       ));
       final all = await store.fetchByDate(const DateKey(2026, 5, 27));
       expect(all.length, 2);
@@ -250,7 +250,7 @@ void main() {
       test('no overlap: plain insert', () async {
         final store = TimeBlockStore(db);
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
         ));
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
@@ -261,10 +261,10 @@ void main() {
       test('fully covered block deleted', () async {
         final store = TimeBlockStore(db);
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
         ));
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 100, endMinute: 110, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
         ));
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
         expect(all.length, 1);
@@ -278,14 +278,14 @@ void main() {
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 1,
         ));
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 2,
+          date: DateKey(2026, 5, 27), startMinute: 10, endMinute: 20, categoryId: 2,
         ));
 
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 2,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 2,
         ));
 
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -301,11 +301,11 @@ void main() {
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 30, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 30, categoryId: 1,
         ));
 
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 2,
+          date: DateKey(2026, 5, 27), startMinute: 10, endMinute: 20, categoryId: 2,
         ));
 
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -329,14 +329,14 @@ void main() {
             {'name': 'Cat3', 'colorHex': '#AAAAAA', 'isPreset': 0});
 
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 20, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 20, categoryId: 1,
         ));
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 20, endMinute: 40, categoryId: 2,
+          date: DateKey(2026, 5, 27), startMinute: 20, endMinute: 40, categoryId: 2,
         ));
 
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 10, endMinute: 30, categoryId: 3,
+          date: DateKey(2026, 5, 27), startMinute: 10, endMinute: 30, categoryId: 3,
         ));
 
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -355,14 +355,14 @@ void main() {
       test('양쪽 인접 동일 카테고리 → 3개 병합', () async {
         final store = TimeBlockStore(db);
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 1,
         ));
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 20, endMinute: 30, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 20, endMinute: 30, categoryId: 1,
         ));
 
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 10, endMinute: 20, categoryId: 1,
         ));
 
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -378,11 +378,11 @@ void main() {
             {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
 
         await store.insert(const TimeBlock(
-          date: '2026-05-27', startMinute: 10, endMinute: 20, categoryId: 1,
+          date: DateKey(2026, 5, 27), startMinute: 10, endMinute: 20, categoryId: 1,
         ));
 
         await store.replaceRange(const TimeBlock(
-          date: '2026-05-27', startMinute: 0, endMinute: 30, categoryId: 2,
+          date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 30, categoryId: 2,
         ));
 
         final all = await store.fetchByDate(const DateKey(2026, 5, 27));
@@ -397,7 +397,7 @@ void main() {
       final store = TimeBlockStore(db);
       await store.insert(
         const TimeBlock(
-          date: '2026-05-27',
+          date: DateKey(2026, 5, 27),
           startMinute: 300,
           endMinute: 360,
           categoryId: 1,
@@ -413,7 +413,7 @@ void main() {
       final store = TimeBlockStore(db);
       final future = store.changes.first;
       await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 1,
       ));
       await expectLater(future, completes);
     });
@@ -422,7 +422,7 @@ void main() {
       final store = TimeBlockStore(db);
       final future = store.changes.first;
       await store.replaceRange(const TimeBlock(
-        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 1,
       ));
       await expectLater(future, completes);
     });
@@ -430,7 +430,7 @@ void main() {
     test('changes emits on delete', () async {
       final store = TimeBlockStore(db);
       final inserted = await store.insert(const TimeBlock(
-        date: '2026-05-27', startMinute: 0, endMinute: 10, categoryId: 1,
+        date: DateKey(2026, 5, 27), startMinute: 0, endMinute: 10, categoryId: 1,
       ));
       final future = store.changes.first;
       await store.delete(inserted.id!);

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/features/grid/grid_view_model.dart';
 import 'package:time_tracker/core/models/category.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/models/photo_asset.dart';
 
@@ -15,7 +16,7 @@ void main() {
     int categoryId = 1,
   }) =>
       TimeBlock(
-        date: '2026-05-27',
+        date: DateKey(2026, 5, 27),
         startMinute: start,
         endMinute: end,
         categoryId: categoryId,
@@ -155,7 +156,7 @@ void main() {
       final cells = GridViewModel.compute(
         blocks: [
           const TimeBlock(
-            date: '2026-05-27',
+            date: DateKey(2026, 5, 27),
             startMinute: 0,
             endMinute: 10,
             categoryId: 3,

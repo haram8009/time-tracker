@@ -36,7 +36,7 @@ class _FakeStore extends TimeBlockStore {
 
   @override
   Future<List<TimeBlock>> fetchByDate(DateKey date) async =>
-      storedBlocks.where((b) => b.date == date.toDbString()).toList();
+      storedBlocks.where((b) => b.date == date).toList();
 }
 
 class _FakeNotificationPort implements NotificationPort {
@@ -80,12 +80,7 @@ class _FakeCategoryStore extends CategoryStore {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-String _todayKey() {
-  final now = DateTime.now();
-  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-}
-
-TimeBlock _block({required String date}) => TimeBlock(
+TimeBlock _block({required DateKey date}) => TimeBlock(
       date: date,
       startMinute: 480,
       endMinute: 600,
@@ -157,7 +152,7 @@ void main() {
 
     test('오늘 블록 insert → store에 저장됨', () async {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      final block = _block(date: _todayKey());
+      final block = _block(date: DateKey.today());
       await vm.saveBlock(block);
       expect(store.insertedBlocks.length, 1);
       expect(store.insertedBlocks.first.startMinute, 480);
@@ -165,20 +160,20 @@ void main() {
 
     test('오늘 블록 insert → scheduleSmartNotification 트리거 (cancelById 호출)', () async {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      await vm.saveBlock(_block(date: _todayKey()));
+      await vm.saveBlock(_block(date: DateKey.today()));
       expect(port.cancelledIds, contains(1));
     });
 
     test('과거 날짜 블록 insert → 알림 reschedule 없음', () async {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      await vm.saveBlock(_block(date: '2020-01-01'));
+      await vm.saveBlock(_block(date: DateKey(2020, 1, 1)));
       expect(port.cancelledIds, isEmpty);
     });
 
     test('saveBlock 여러 번 → 각 호출마다 insert', () async {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      await vm.saveBlock(_block(date: _todayKey()));
-      await vm.saveBlock(_block(date: _todayKey()));
+      await vm.saveBlock(_block(date: DateKey.today()));
+      await vm.saveBlock(_block(date: DateKey.today()));
       expect(store.insertedBlocks.length, 2);
     });
   });
