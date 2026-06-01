@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/core/models/category.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/features/analytics/analytics_engine.dart';
 
@@ -11,7 +12,7 @@ void main() {
     required int start,
     required int end,
     int categoryId = 1,
-    String date = '2026-05-27',
+    DateKey date = const DateKey(2026, 5, 27),
   }) =>
       TimeBlock(
         date: date,
@@ -101,7 +102,7 @@ void main() {
 
   group('computeHeatmap', () {
     TimeBlock hBlock({
-      required String date,
+      required DateKey date,
       required int start,
       required int end,
       int catId = 1,
@@ -116,7 +117,7 @@ void main() {
     });
 
     test('월요일 블록(2026-05-25) → 요일 인덱스 0, 분 정확도', () {
-      final b = hBlock(date: '2026-05-25', start: 60, end: 120);
+      final b = hBlock(date: DateKey(2026, 5, 25), start: 60, end: 120);
       final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: [cat1]);
       expect(m[0][1].totalMinutes, 60);
       expect(m[0][1].dominantCategory, cat1);
@@ -125,7 +126,7 @@ void main() {
     });
 
     test('부분 겹침(30~90분) → hour 0에 30분, hour 1에 30분', () {
-      final b = hBlock(date: '2026-05-25', start: 30, end: 90);
+      final b = hBlock(date: DateKey(2026, 5, 25), start: 30, end: 90);
       final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: [cat1]);
       expect(m[0][0].totalMinutes, 30);
       expect(m[0][1].totalMinutes, 30);
@@ -133,8 +134,8 @@ void main() {
 
     test('같은 슬롯 같은 카테고리 누적', () {
       final blocks = [
-        hBlock(date: '2026-05-25', start: 60, end: 120),
-        hBlock(date: '2026-05-25', start: 60, end: 120),
+        hBlock(date: DateKey(2026, 5, 25), start: 60, end: 120),
+        hBlock(date: DateKey(2026, 5, 25), start: 60, end: 120),
       ];
       final m = AnalyticsEngine.computeHeatmap(blocks: blocks, categories: [cat1]);
       expect(m[0][1].totalMinutes, 120);
@@ -143,8 +144,8 @@ void main() {
 
     test('dominant category = 분 많은 카테고리', () {
       final blocks = [
-        hBlock(date: '2026-05-25', start: 60, end: 100, catId: 1), // 40분
-        hBlock(date: '2026-05-25', start: 100, end: 120, catId: 2), // 20분
+        hBlock(date: DateKey(2026, 5, 25), start: 60, end: 100, catId: 1), // 40분
+        hBlock(date: DateKey(2026, 5, 25), start: 100, end: 120, catId: 2), // 20분
       ];
       final m = AnalyticsEngine.computeHeatmap(blocks: blocks, categories: [cat1, cat2]);
       expect(m[0][1].dominantCategory, cat1);
@@ -152,7 +153,7 @@ void main() {
     });
 
     test('고아 categoryId → dominantCategory null, totalMinutes 유지', () {
-      final b = hBlock(date: '2026-05-25', start: 60, end: 120, catId: 99);
+      final b = hBlock(date: DateKey(2026, 5, 25), start: 60, end: 120, catId: 99);
       final m = AnalyticsEngine.computeHeatmap(blocks: [b], categories: []);
       expect(m[0][1].totalMinutes, 60);
       expect(m[0][1].dominantCategory, isNull);
@@ -209,7 +210,7 @@ void main() {
     test('computeHeatmap — RetiredCategory dominantCategory 반환', () {
       final matrix = AnalyticsEngine.computeHeatmap(
         blocks: [
-          block(start: 0, end: 60, categoryId: 99, date: '2026-05-25'),
+          block(start: 0, end: 60, categoryId: 99, date: DateKey(2026, 5, 25)),
         ],
         categories: [retiredCat],
       );

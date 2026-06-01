@@ -51,7 +51,7 @@ class AnalyticsEngine {
     final rawMatrix = List.generate(7, (_) => List.generate(24, (_) => <int, int>{}));
 
     for (final b in blocks) {
-      final dayIndex = DateTime.parse(b.date).weekday - 1;
+      final dayIndex = b.date.toDateTime().weekday - 1;
       final startHour = b.startMinute ~/ 60;
       final endHour = ((b.endMinute - 1) ~/ 60).clamp(0, 23);
       for (var h = startHour; h <= endHour; h++) {

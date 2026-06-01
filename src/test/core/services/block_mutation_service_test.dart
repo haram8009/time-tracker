@@ -33,7 +33,7 @@ class _FakeStore extends TimeBlockStore {
 
   @override
   Future<List<TimeBlock>> fetchByDate(DateKey date) async =>
-      storedBlocks.where((b) => b.date == date.toDbString()).toList();
+      storedBlocks.where((b) => b.date == date).toList();
 }
 
 class _FakeNotificationPort implements NotificationPort {
@@ -58,12 +58,7 @@ class _FakeNotificationPort implements NotificationPort {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-String _todayKey() {
-  final now = DateTime.now();
-  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-}
-
-TimeBlock _block({required String date}) => TimeBlock(
+TimeBlock _block({required DateKey date}) => TimeBlock(
       date: date,
       startMinute: 480,
       endMinute: 600,
@@ -119,12 +114,12 @@ void main() {
         );
 
     test('save() 오늘 날짜 → 알림 reschedule됨', () async {
-      await makeService().save(_block(date: _todayKey()));
+      await makeService().save(_block(date: DateKey.today()));
       expect(port.cancelledIds, contains(1));
     });
 
     test('save() 과거 날짜 → 알림 reschedule 없음', () async {
-      await makeService().save(_block(date: '2020-01-01'));
+      await makeService().save(_block(date: DateKey(2020, 1, 1)));
       expect(port.cancelledIds, isEmpty);
     });
 

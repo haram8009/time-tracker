@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/notifications/notification_port.dart';
 import 'package:time_tracker/core/notifications/notification_scheduler.dart';
@@ -102,7 +103,7 @@ void main() {
       final port = _FakeNotificationPort();
       final block = TimeBlock(
         id: 1,
-        date: '2026-01-01',
+        date: DateKey(2026, 1, 1),
         startMinute: 480,
         endMinute: 600,
         categoryId: 1,
