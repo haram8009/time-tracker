@@ -10,6 +10,7 @@ import '../../core/services/photo_library_service.dart';
 import 'category_bottom_sheet.dart';
 import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
+import 'grid_coordinator.dart';
 import 'grid_gesture_handler.dart';
 import 'grid_screen_view_model.dart';
 import 'calendar_modal.dart';
@@ -26,15 +27,7 @@ class GridScreen extends ConsumerStatefulWidget {
 }
 
 class _GridScreenState extends ConsumerState<GridScreen> {
-  late final ScrollController _scrollController;
-  late final PageController _pageController;
-  late final DragSelectionController _drag;
-  late final GridLayoutCalculator _calculator;
-  late final GridGestureHandler _gestureHandler;
-
-  bool _isDragging = false;
-  bool _isProgrammaticJump = false;
-  DateKey _currentDateKey = DateKey.today();
+  late final GridCoordinator _coordinator;
 
   static const double _kTimeLabelWidth = 48.0;
   static const double _kCellHeight = 48.0;
@@ -42,91 +35,60 @@ class _GridScreenState extends ConsumerState<GridScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
-    _drag = DragSelectionController();
-    _drag.addListener(() => setState(() {}));
 
-    _calculator = const GridLayoutCalculator(
+    const calculator = GridLayoutCalculator(
       columnCount: 6,
       cellHeight: _kCellHeight,
       timeLabelWidth: _kTimeLabelWidth,
     );
 
-    _gestureHandler = GridGestureHandler(
-      calculator: _calculator,
-      drag: _drag,
-      onDraggingChanged: (v) => setState(() => _isDragging = v),
-      onSelectionComplete: (sel) => showCategoryBottomSheet(
-        context,
-        ref,
-        _currentDateKey,
-        sel.startMinute,
-        sel.endMinute,
-      ).then((_) => _drag.clearSelection()),
-      onSelectionCancelled: () {},
+    _coordinator = GridCoordinator(
+      calculator: calculator,
+      onDateChanged: (date) =>
+          ref.read(gridScreenViewModelProvider.notifier).goToDate(date),
+      onSelectionComplete: (sel) {
+        final page = _coordinator.pageController.page?.round() ??
+            DateKey.today().toPage(DateKey.appEpoch);
+        final currentDate = DateKey.fromPage(page, DateKey.appEpoch);
+        showCategoryBottomSheet(
+          context,
+          ref,
+          currentDate,
+          sel.startMinute,
+          sel.endMinute,
+        ).then((_) => _coordinator.clearSelection());
+      },
     );
 
-    final initialPage = DateKey.today().toPage(DateKey.appEpoch);
-    _pageController = PageController(initialPage: initialPage);
-  }
-
-  void _scrollToNow() {
-    if (!_scrollController.hasClients) return;
-    final now = DateTime.now();
-    final idx = GridViewModel.minuteToIndex(now.hour * 60 + now.minute);
-    final screenH = MediaQuery.of(context).size.height;
-    final topPad = MediaQuery.of(context).padding.top + 56;
-    final offset = _calculator.scrollTargetForIndex(idx, screenH, topPad);
-    _scrollController.animateTo(
-      offset,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _scrollToTop() {
-    if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-    );
+    _coordinator.drag.addListener(() => setState(() {}));
+    _coordinator.isDragging.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _pageController.dispose();
-    _drag.dispose();
+    _coordinator.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    _gestureHandler.gridSize = MediaQuery.of(context).size;
+    _coordinator.gestureHandler.gridSize = MediaQuery.of(context).size;
+    _coordinator.updateMetrics(
+      screenHeight: MediaQuery.of(context).size.height,
+      topPad: MediaQuery.of(context).padding.top + 56,
+    );
 
     final todayPage = DateKey.today().toPage(DateKey.appEpoch);
 
-    // Sync PageController when selectedDate changes externally (e.g. WeekStrip, CalendarModal)
     ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
       if (prev?.dbReady == false && next.dbReady == true) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNow());
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _coordinator.goToDate(DateKey.today()),
+        );
       } else if (prev?.selectedDate != next.selectedDate) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (DateKey.today() == next.selectedDate) {
-            _scrollToNow();
-          } else {
-            _scrollToTop();
-          }
-
-          // Sync PageView to externally-driven date change
-          final targetPage = next.selectedDate.toPage(DateKey.appEpoch);
-          if (_pageController.hasClients &&
-              _pageController.page?.round() != targetPage) {
-            _isProgrammaticJump = true;
-            _pageController.jumpToPage(targetPage);
-          }
-        });
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _coordinator.goToDate(next.selectedDate),
+        );
       }
     });
 
@@ -146,8 +108,10 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
     return Scaffold(
       body: CustomScrollView(
-        controller: _scrollController,
-        physics: _isDragging ? const NeverScrollableScrollPhysics() : null,
+        controller: _coordinator.scrollController,
+        physics: _coordinator.isDragging.value
+            ? const NeverScrollableScrollPhysics()
+            : null,
         slivers: [
           SliverAppBar(
             pinned: true,
@@ -161,7 +125,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                 selectedDate: selectedDate,
                 onDateSelected: (date) {
                   vm.goToDate(date);
-                  _drag.clearSelection();
+                  _coordinator.clearSelection();
                 },
               ),
               child: Text(
@@ -177,7 +141,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                 TextButton(
                   onPressed: () {
                     vm.goToToday();
-                    _drag.clearSelection();
+                    _coordinator.clearSelection();
                   },
                   child: const Text('오늘', style: TextStyle(fontSize: 14)),
                 ),
@@ -190,7 +154,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               backgroundColor: weekStripBg,
               onDateSelected: (date) {
                 vm.goToDate(date);
-                _drag.clearSelection();
+                _coordinator.clearSelection();
               },
             ),
           ),
@@ -198,31 +162,19 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             child: SizedBox(
               height: 24 * _kCellHeight,
               child: PageView.builder(
-                controller: _pageController,
+                controller: _coordinator.pageController,
                 itemCount: todayPage + 1,
-                onPageChanged: (page) {
-                  if (_isProgrammaticJump) {
-                    _isProgrammaticJump = false;
-                    return;
-                  }
-                  final date = DateKey.fromPage(page, DateKey.appEpoch);
-                  vm.goToDate(date);
-                  _drag.clearSelection();
-                },
+                onPageChanged: _coordinator.onPageChanged,
                 itemBuilder: (context, page) {
                   final pageDate = DateKey.fromPage(page, DateKey.appEpoch);
                   return _GridPage(
                     date: pageDate,
-                    isDragging: _isDragging,
-                    drag: _drag,
+                    isDragging: _coordinator.isDragging.value,
+                    drag: _coordinator.drag,
                     blockStyle: blockStyle,
                     kTimeLabelWidth: _kTimeLabelWidth,
                     kCellHeight: _kCellHeight,
-                    onCurrentDateKey: (key) => _currentDateKey = key,
-                    onLongPressStart: _gestureHandler.handleLongPressStart,
-                    onLongPressMoveUpdate: _gestureHandler.handleLongPressMoveUpdate,
-                    onLongPressEnd: _gestureHandler.handleLongPressEnd,
-                    onLongPressCancel: _gestureHandler.handleLongPressCancel,
+                    gestureHandler: _coordinator.gestureHandler,
                   );
                 },
               ),
@@ -248,11 +200,7 @@ class _GridPage extends ConsumerWidget {
     required this.blockStyle,
     required this.kTimeLabelWidth,
     required this.kCellHeight,
-    required this.onCurrentDateKey,
-    required this.onLongPressStart,
-    required this.onLongPressMoveUpdate,
-    required this.onLongPressEnd,
-    required this.onLongPressCancel,
+    required this.gestureHandler,
   });
 
   final DateKey date;
@@ -261,11 +209,7 @@ class _GridPage extends ConsumerWidget {
   final dynamic blockStyle;
   final double kTimeLabelWidth;
   final double kCellHeight;
-  final ValueChanged<DateKey> onCurrentDateKey;
-  final GestureLongPressStartCallback onLongPressStart;
-  final GestureLongPressMoveUpdateCallback onLongPressMoveUpdate;
-  final GestureLongPressEndCallback onLongPressEnd;
-  final VoidCallback onLongPressCancel;
+  final GridGestureHandler gestureHandler;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -281,7 +225,6 @@ class _GridPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (categories) {
           final photosAsync = ref.watch(photosForDateProvider(date.toDateTime()));
-          onCurrentDateKey(date);
           final cells = GridViewModel.compute(
             blocks: dbBlocks,
             categories: categories,
@@ -290,10 +233,10 @@ class _GridPage extends ConsumerWidget {
           );
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onLongPressStart: onLongPressStart,
-            onLongPressMoveUpdate: onLongPressMoveUpdate,
-            onLongPressEnd: onLongPressEnd,
-            onLongPressCancel: onLongPressCancel,
+            onLongPressStart: gestureHandler.handleLongPressStart,
+            onLongPressMoveUpdate: gestureHandler.handleLongPressMoveUpdate,
+            onLongPressEnd: gestureHandler.handleLongPressEnd,
+            onLongPressCancel: gestureHandler.handleLongPressCancel,
             child: Stack(
               children: [
                 Column(
@@ -382,6 +325,8 @@ class _GridPage extends ConsumerWidget {
     );
   }
 }
+
+// ── WeekStrip delegate ────────────────────────────────────────────────────────
 
 class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
   const _WeekStripDelegate({
