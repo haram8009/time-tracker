@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
@@ -8,7 +9,6 @@ import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/services/photo_library_service.dart';
 import 'category_bottom_sheet.dart';
-import 'drag_selection_controller.dart';
 import 'edit_block_bottom_sheet.dart';
 import 'grid_coordinator.dart';
 import 'grid_gesture_handler.dart';
@@ -60,7 +60,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
       },
     );
 
-    _coordinator.drag.addListener(() => setState(() {}));
+    _coordinator.dragState.addListener(() => setState(() {}));
     _coordinator.isDragging.addListener(() => setState(() {}));
   }
 
@@ -170,7 +170,10 @@ class _GridScreenState extends ConsumerState<GridScreen> {
                   return _GridPage(
                     date: pageDate,
                     isDragging: _coordinator.isDragging.value,
-                    drag: _coordinator.drag,
+                    dragState: _coordinator.dragState,
+                    onClearSelection: _coordinator.clearSelection,
+                    onDragStarted: _coordinator.onDragStarted,
+                    onDragEnded: _coordinator.onDragEnded,
                     blockStyle: blockStyle,
                     kTimeLabelWidth: _kTimeLabelWidth,
                     kCellHeight: _kCellHeight,
@@ -196,7 +199,10 @@ class _GridPage extends ConsumerWidget {
   const _GridPage({
     required this.date,
     required this.isDragging,
-    required this.drag,
+    required this.dragState,
+    required this.onClearSelection,
+    required this.onDragStarted,
+    required this.onDragEnded,
     required this.blockStyle,
     required this.kTimeLabelWidth,
     required this.kCellHeight,
@@ -205,7 +211,10 @@ class _GridPage extends ConsumerWidget {
 
   final DateKey date;
   final bool isDragging;
-  final DragSelectionController drag;
+  final ValueListenable<DragSelectionState> dragState;
+  final VoidCallback onClearSelection;
+  final void Function(int) onDragStarted;
+  final VoidCallback onDragEnded;
   final dynamic blockStyle;
   final double kTimeLabelWidth;
   final double kCellHeight;
@@ -229,7 +238,7 @@ class _GridPage extends ConsumerWidget {
             blocks: dbBlocks,
             categories: categories,
             photos: photosAsync.valueOrNull ?? const [],
-            selectedIndices: drag.selectedIndices,
+            selectedIndices: dragState.value.selectedIndices,
           );
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -278,7 +287,7 @@ class _GridPage extends ConsumerWidget {
                                           dbBlocks,
                                         );
                                         if (existing != null) {
-                                          drag.clearSelection();
+                                          onClearSelection();
                                           showEditBlockBottomSheet(
                                             context,
                                             ref,
@@ -286,9 +295,9 @@ class _GridPage extends ConsumerWidget {
                                             categories,
                                           );
                                         } else {
-                                          drag.onDragStart(cellIndex);
-                                          drag.onDragEnd();
-                                          final sel = drag.selection;
+                                          onDragStarted(cellIndex);
+                                          onDragEnded();
+                                          final sel = dragState.value.selection;
                                           if (sel != null) {
                                             showCategoryBottomSheet(
                                               context,
@@ -297,7 +306,7 @@ class _GridPage extends ConsumerWidget {
                                               sel.startMinute,
                                               sel.endMinute,
                                             ).then(
-                                              (_) => drag.clearSelection(),
+                                              (_) => onClearSelection(),
                                             );
                                           }
                                         }

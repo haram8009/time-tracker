@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logic/drag_selection_reducer.dart';
 import '../../core/logic/grid_layout_calculator.dart';
 import '../../core/models/date_key.dart';
-import 'drag_selection_controller.dart';
+import '../../core/models/drag_selection_state.dart';
 import 'grid_gesture_handler.dart';
+
+export '../../core/models/drag_selection_state.dart';
 
 class GridCoordinator {
   GridCoordinator({
@@ -11,17 +15,15 @@ class GridCoordinator {
     required void Function(DateKey) onDateChanged,
     required void Function(DragSelection) onSelectionComplete,
   }) : _calculator = calculator,
-       _onDateChanged = onDateChanged {
-    _drag = DragSelectionController();
-
+       _onDateChanged = onDateChanged,
+       _onSelectionComplete = onSelectionComplete {
     _gestureHandler = GridGestureHandler(
       calculator: calculator,
-      drag: _drag,
+      onDragStarted: onDragStarted,
+      onDragUpdated: onDragUpdated,
+      onDragEnded: onDragEnded,
+      onDragCancelled: onDragCancelled,
       onDraggingChanged: (v) => isDragging.value = v,
-      onSelectionComplete: (sel) {
-        onSelectionComplete(sel);
-      },
-      onSelectionCancelled: () {},
     );
 
     final initialPage = DateKey.today().toPage(DateKey.appEpoch);
@@ -31,11 +33,14 @@ class GridCoordinator {
 
   final GridLayoutCalculator _calculator;
   final void Function(DateKey) _onDateChanged;
+  final void Function(DragSelection) _onSelectionComplete;
 
-  late final DragSelectionController _drag;
   late final GridGestureHandler _gestureHandler;
   late final PageController _pageController;
   late final ScrollController _scrollController;
+
+  DragSelectionState _dragState = const DragSelectionState();
+  final _dragNotifier = ValueNotifier<DragSelectionState>(const DragSelectionState());
 
   bool _isProgrammaticJump = false;
 
@@ -46,13 +51,33 @@ class GridCoordinator {
 
   ScrollController get scrollController => _scrollController;
   PageController get pageController => _pageController;
-  DragSelectionController get drag => _drag;
   GridGestureHandler get gestureHandler => _gestureHandler;
+  ValueListenable<DragSelectionState> get dragState => _dragNotifier;
 
   void updateMetrics({required double screenHeight, required double topPad}) {
     _screenHeight = screenHeight;
     _topPad = topPad;
   }
+
+  // ── Drag events ────────────────────────────────────────────────────────────
+
+  void onDragStarted(int cellIndex) => _applyDrag(DragStarted(cellIndex));
+  void onDragUpdated(int cellIndex) => _applyDrag(DragUpdated(cellIndex));
+
+  void onDragEnded() {
+    _applyDrag(DragEnded());
+    final sel = _dragState.selection;
+    if (sel != null) _onSelectionComplete(sel);
+  }
+
+  void onDragCancelled() => _applyDrag(DragCancelled());
+
+  void clearSelection() {
+    _dragState = const DragSelectionState();
+    _dragNotifier.value = _dragState;
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
 
   void goToDate(DateKey date) {
     if (date == DateKey.today()) {
@@ -79,13 +104,18 @@ class GridCoordinator {
     _onDateChanged(date);
   }
 
-  void clearSelection() => _drag.clearSelection();
-
   void dispose() {
     _scrollController.dispose();
     _pageController.dispose();
-    _drag.dispose();
+    _dragNotifier.dispose();
     isDragging.dispose();
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
+  void _applyDrag(DragEvent event) {
+    _dragState = dragSelectionReducer(_dragState, event);
+    _dragNotifier.value = _dragState;
   }
 
   void _scrollToNow() {
