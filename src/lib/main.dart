@@ -27,19 +27,23 @@ void main() async {
 
   final settings = NotificationSettings(
     enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ?? true,
-    sleepStartMinute: prefsAdapter.getInt(NotificationSettings.keySleepStart) ?? 1380,
-    sleepEndMinute: prefsAdapter.getInt(NotificationSettings.keySleepEnd) ?? 420,
+    sleepStartMinute:
+        prefsAdapter.getInt(NotificationSettings.keySleepStart) ?? 1380,
+    sleepEndMinute:
+        prefsAdapter.getInt(NotificationSettings.keySleepEnd) ?? 420,
   );
   await scheduleWeeklyFallbackNotifications(settings, port);
 
-  runApp(ProviderScope(
-    overrides: [
-      databaseProvider.overrideWithValue(db),
-      sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
-      notificationPortProvider.overrideWithValue(port),
-    ],
-    child: const TimeTrackerApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
+        notificationPortProvider.overrideWithValue(port),
+      ],
+      child: const TimeTrackerApp(),
+    ),
+  );
 }
 
 class TimeTrackerApp extends ConsumerWidget {
@@ -88,9 +92,7 @@ class _RootShellState extends ConsumerState<_RootShell> {
             onTap: (i) => setState(() => _index = i),
             activeColor: isDark ? Colors.white : Colors.black,
             inactiveColor: const Color(0xFFC7C7CC),
-            backgroundColor: isDark
-                ? const Color(0xFF1C1C1E).withValues(alpha: 0.92)
-                : Colors.white.withValues(alpha: 0.92),
+            backgroundColor: Colors.transparent,
             border: null,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: '기록'),
@@ -111,7 +113,9 @@ class _RootShellState extends ConsumerState<_RootShell> {
     return DecoratedBox(
       decoration: BoxDecoration(gradient: gradient),
       child: Theme(
-        data: Theme.of(context).copyWith(scaffoldBackgroundColor: Colors.transparent),
+        data: Theme.of(
+          context,
+        ).copyWith(scaffoldBackgroundColor: Colors.transparent),
         child: scaffold,
       ),
     );
