@@ -1,0 +1,17 @@
+workflows:
+  android-internal:
+    name: Android Internal Testing
+    environment:
+      flutter: stable
+      android_signing:
+        - upload-keystore       # Codemagic
+    scripts:
+      - cd src && flutter pub get
+      - cd src && flutter test
+      - cd src && flutter build appbundle --release
+    artifacts:
+      - src/build/app/outputs/bundle/release/*.aab
+    # publishing:
+    #   google_play:
+    #     credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+    #     track: internal
