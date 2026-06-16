@@ -9,6 +9,8 @@ import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/time_utils.dart';
+import '../../core/models/date_key.dart';
+import '../grid/calendar_modal.dart';
 import 'analytics_engine.dart';
 import 'analytics_view_model.dart';
 
@@ -68,28 +70,77 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tab,
+      body: Column(
         children: [
-          _PeriodView(
-            period: AnalyticsPeriod.day,
-            touchedIndex: _touchedIndex,
-            onTouch: (i) => setState(() => _touchedIndex = i),
-            isGlass: isGlass,
+          _PeriodHeader(period: _periods[_tab.index]),
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _PeriodView(
+                  period: AnalyticsPeriod.day,
+                  touchedIndex: _touchedIndex,
+                  onTouch: (i) => setState(() => _touchedIndex = i),
+                  isGlass: isGlass,
+                ),
+                _PeriodView(
+                  period: AnalyticsPeriod.week,
+                  touchedIndex: _touchedIndex,
+                  onTouch: (i) => setState(() => _touchedIndex = i),
+                  isGlass: isGlass,
+                ),
+                _PeriodView(
+                  period: AnalyticsPeriod.month,
+                  touchedIndex: _touchedIndex,
+                  onTouch: (i) => setState(() => _touchedIndex = i),
+                  isGlass: isGlass,
+                ),
+                _HeatmapView(isGlass: isGlass, isDark: isDark),
+              ],
+            ),
           ),
-          _PeriodView(
-            period: AnalyticsPeriod.week,
-            touchedIndex: _touchedIndex,
-            onTouch: (i) => setState(() => _touchedIndex = i),
-            isGlass: isGlass,
+        ],
+      ),
+    );
+  }
+}
+
+class _PeriodHeader extends ConsumerWidget {
+  const _PeriodHeader({required this.period});
+
+  final AnalyticsPeriod period;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final vm = ref.read(analyticsViewModelProvider.notifier);
+    final isToday = anchor == DateKey.today();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: () => showCalendarModal(
+              context: context,
+              selectedDate: anchor,
+              onDateSelected: vm.goToDate,
+            ),
+            icon: const Icon(Icons.calendar_today, size: 16),
+            label: Text(
+              AnalyticsViewModel.labelFor(period, anchor),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
-          _PeriodView(
-            period: AnalyticsPeriod.month,
-            touchedIndex: _touchedIndex,
-            onTouch: (i) => setState(() => _touchedIndex = i),
-            isGlass: isGlass,
-          ),
-          _HeatmapView(isGlass: isGlass, isDark: isDark),
+          if (!isToday)
+            TextButton(
+              onPressed: vm.goToToday,
+              child: const Text('오늘', style: TextStyle(fontSize: 14)),
+            ),
         ],
       ),
     );
@@ -111,7 +162,8 @@ class _PeriodView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = AnalyticsViewModel.dateRangeFor(period);
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final range = AnalyticsViewModel.dateRangeFor(period, anchor);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
@@ -124,7 +176,7 @@ class _PeriodView extends ConsumerWidget {
           if (stats.isEmpty) {
             return Center(
               child: Text(
-                '${AnalyticsViewModel.labelFor(period)} 기록이 없어요.',
+                '${AnalyticsViewModel.labelFor(period, anchor)} 기록이 없어요.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             );
@@ -254,7 +306,8 @@ class _HeatmapView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap, anchor);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;
