@@ -51,6 +51,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     final blockStyle = ref.watch(appearanceServiceProvider);
     final isGlass = blockStyle == TimeBlockStyle.liquidGlass;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final vm = ref.read(analyticsViewModelProvider.notifier);
+    final period = _periods[_tab.index];
 
     return Scaffold(
       backgroundColor: isGlass ? Colors.transparent : null,
@@ -58,7 +61,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         backgroundColor: isGlass
             ? Colors.transparent
             : Theme.of(context).scaffoldBackgroundColor,
-        title: const Text('분석'),
+        title: CalendarHeaderButton(
+          label: AnalyticsViewModel.labelFor(period, anchor),
+          selectedDate: anchor,
+          onDateSelected: vm.goToDate,
+        ),
+        centerTitle: false,
+        actions: [
+          if (anchor != DateKey.today())
+            TodayResetButton(onPressed: vm.goToToday),
+        ],
         bottom: TabBar(
           controller: _tab,
           dividerColor: Theme.of(context).dividerColor,
@@ -70,77 +82,28 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
           ],
         ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tab,
         children: [
-          _PeriodHeader(period: _periods[_tab.index]),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              children: [
-                _PeriodView(
-                  period: AnalyticsPeriod.day,
-                  touchedIndex: _touchedIndex,
-                  onTouch: (i) => setState(() => _touchedIndex = i),
-                  isGlass: isGlass,
-                ),
-                _PeriodView(
-                  period: AnalyticsPeriod.week,
-                  touchedIndex: _touchedIndex,
-                  onTouch: (i) => setState(() => _touchedIndex = i),
-                  isGlass: isGlass,
-                ),
-                _PeriodView(
-                  period: AnalyticsPeriod.month,
-                  touchedIndex: _touchedIndex,
-                  onTouch: (i) => setState(() => _touchedIndex = i),
-                  isGlass: isGlass,
-                ),
-                _HeatmapView(isGlass: isGlass, isDark: isDark),
-              ],
-            ),
+          _PeriodView(
+            period: AnalyticsPeriod.day,
+            touchedIndex: _touchedIndex,
+            onTouch: (i) => setState(() => _touchedIndex = i),
+            isGlass: isGlass,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PeriodHeader extends ConsumerWidget {
-  const _PeriodHeader({required this.period});
-
-  final AnalyticsPeriod period;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
-    final vm = ref.read(analyticsViewModelProvider.notifier);
-    final isToday = anchor == DateKey.today();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextButton.icon(
-            onPressed: () => showCalendarModal(
-              context: context,
-              selectedDate: anchor,
-              onDateSelected: vm.goToDate,
-            ),
-            icon: const Icon(Icons.calendar_today, size: 16),
-            label: Text(
-              AnalyticsViewModel.labelFor(period, anchor),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+          _PeriodView(
+            period: AnalyticsPeriod.week,
+            touchedIndex: _touchedIndex,
+            onTouch: (i) => setState(() => _touchedIndex = i),
+            isGlass: isGlass,
           ),
-          if (!isToday)
-            TextButton(
-              onPressed: vm.goToToday,
-              child: const Text('오늘', style: TextStyle(fontSize: 14)),
-            ),
+          _PeriodView(
+            period: AnalyticsPeriod.month,
+            touchedIndex: _touchedIndex,
+            onTouch: (i) => setState(() => _touchedIndex = i),
+            isGlass: isGlass,
+          ),
+          _HeatmapView(isGlass: isGlass, isDark: isDark),
         ],
       ),
     );
@@ -205,11 +168,15 @@ class _PeriodView extends ConsumerWidget {
                   return PieChartSectionData(
                     borderSide: isGlass
                         ? BorderSide(
-                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
+                            color: Colors.white.withValues(
+                              alpha: AppTheme.glassBorderAlpha,
+                            ),
                             width: 1,
                           )
                         : BorderSide.none,
-                    color: isGlass ? color.withValues(alpha: AppTheme.glassSectionAlpha) : color,
+                    color: isGlass
+                        ? color.withValues(alpha: AppTheme.glassSectionAlpha)
+                        : color,
                     value: s.totalMinutes.toDouble(),
                     title: isTouched ? '$pct%' : '',
                     radius: isTouched ? 80 : 64,
@@ -243,15 +210,21 @@ class _PeriodView extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
+                            color: Colors.white.withValues(
+                              alpha: AppTheme.glassBorderAlpha,
+                            ),
                             width: 1,
                           ),
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayHigh),
-                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayLow),
+                              Colors.white.withValues(
+                                alpha: AppTheme.glassCardOverlayHigh,
+                              ),
+                              Colors.white.withValues(
+                                alpha: AppTheme.glassCardOverlayLow,
+                              ),
                             ],
                           ),
                         ),
@@ -307,7 +280,10 @@ class _HeatmapView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
-    final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap, anchor);
+    final range = AnalyticsViewModel.dateRangeFor(
+      AnalyticsPeriod.heatmap,
+      anchor,
+    );
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;

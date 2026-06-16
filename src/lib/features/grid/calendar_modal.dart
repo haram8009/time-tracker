@@ -24,6 +24,55 @@ Future<void> showCalendarModal({
   );
 }
 
+/// Tappable AppBar-title button that opens [showCalendarModal].
+/// Shared by the records (grid) and analytics screens for a consistent header.
+class CalendarHeaderButton extends StatelessWidget {
+  const CalendarHeaderButton({
+    super.key,
+    required this.label,
+    required this.selectedDate,
+    required this.onDateSelected,
+  });
+
+  final String label;
+  final DateKey selectedDate;
+  final void Function(DateKey) onDateSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: () => showCalendarModal(
+        context: context,
+        selectedDate: selectedDate,
+        onDateSelected: onDateSelected,
+      ),
+      icon: const Icon(Icons.calendar_today, size: 16),
+      label: Text(
+        label,
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// "오늘" reset button for AppBar actions. Shared header element.
+class TodayResetButton extends StatelessWidget {
+  const TodayResetButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      child: const Text('오늘', style: TextStyle(fontSize: 14)),
+    );
+  }
+}
+
 class _CalendarModalContent extends StatefulWidget {
   const _CalendarModalContent({
     required this.selectedDate,
@@ -48,6 +97,12 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
   DateTime get _today {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Date-only comparison (tz-safe). table_calendar passes UTC-midnight days,
+  /// so a raw `isAfter` would wrongly mark today as future in +UTC zones.
+  bool _isAfterToday(DateTime day) {
+    return DateTime(day.year, day.month, day.day).isAfter(_today);
   }
 
   @override
@@ -97,7 +152,7 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
       availableCalendarFormats: const {CalendarFormat.month: ''},
       startingDayOfWeek: StartingDayOfWeek.sunday,
       onDaySelected: (selectedDay, focusedDay) {
-        if (selectedDay.isAfter(today)) return;
+        if (_isAfterToday(selectedDay)) return;
         setState(() {
           _selectedDay = selectedDay;
           _focusedDay = focusedDay;
@@ -160,7 +215,7 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
           ),
         ),
       ),
-      enabledDayPredicate: (day) => !day.isAfter(today),
+      enabledDayPredicate: (day) => !_isAfterToday(day),
     );
   }
 
