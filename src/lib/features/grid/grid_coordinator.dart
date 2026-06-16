@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/logic/drag_selection_reducer.dart';
 import '../../core/logic/grid_layout_calculator.dart';
+import '../../core/logic/page_sync_decider.dart';
 import '../../core/models/date_key.dart';
 import '../../core/models/drag_selection_state.dart';
 import 'grid_gesture_handler.dart';
@@ -44,7 +45,9 @@ class GridCoordinator {
   DragSelectionState _dragState = const DragSelectionState();
   final _dragNotifier = ValueNotifier<DragSelectionState>(const DragSelectionState());
 
-  bool _isProgrammaticJump = false;
+  // 현재 진행 중인 page 변경의 출처. 기본 external.
+  // swipe 발 변경은 onPageChanged가 직접 표시 → 뒤따르는 echo goToDate를 NoOp 처리.
+  PageChangeSource _source = PageChangeSource.external;
 
   double _screenHeight = 0;
   double _topPad = 0;
@@ -88,20 +91,23 @@ class GridCoordinator {
       _scrollToTop();
     }
     final targetPage = date.toPage(DateKey.appEpoch);
-    _isProgrammaticJump = true;
-    if (_pageController.hasClients &&
-        _pageController.page?.round() != targetPage) {
-      _pageController.jumpToPage(targetPage);
+    final currentPage =
+        _pageController.hasClients ? _pageController.page?.round() : null;
+    final decision = decidePageSync(
+      source: _source,
+      currentPage: currentPage,
+      targetPage: targetPage,
+    );
+    if (decision is JumpTo && _pageController.hasClients) {
+      _pageController.jumpToPage(decision.page);
     }
+    _source = PageChangeSource.external;
   }
 
   void goToToday() => goToDate(DateKey.today());
 
   void onPageChanged(int page) {
-    if (_isProgrammaticJump) {
-      _isProgrammaticJump = false;
-      return;
-    }
+    _source = PageChangeSource.swipe;
     final date = DateKey.fromPage(page, DateKey.appEpoch);
     _onDateChanged(date);
   }

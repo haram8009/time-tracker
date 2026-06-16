@@ -27,7 +27,7 @@ void main() {
       expect(c.pageController.initialPage, DateKey.today().toPage(DateKey.appEpoch));
     });
 
-    test('onPageChanged without programmatic jump — onDateChanged called', () {
+    test('onPageChanged(swipe) → onDateChanged 호출 (헤더 즉시 갱신)', () {
       final called = <DateKey>[];
       final c = _make(onDateChanged: called.add);
       addTearDown(c.dispose);
@@ -38,29 +38,40 @@ void main() {
       expect(called, [DateKey(2025, 3, 10)]);
     });
 
-    test('onPageChanged during programmatic jump — onDateChanged NOT called', () {
+    test('연속 onPageChanged — 매번 onDateChanged 호출 (씹힘 없음 — 버그 A)', () {
       final called = <DateKey>[];
       final c = _make(onDateChanged: called.add);
       addTearDown(c.dispose);
 
-      // goToDate sets _isProgrammaticJump = true when pageController has no clients
-      c.goToDate(DateKey(2025, 6, 1));
       c.onPageChanged(DateKey(2025, 6, 1).toPage(DateKey.appEpoch));
+      c.onPageChanged(DateKey(2025, 6, 2).toPage(DateKey.appEpoch));
+      c.onPageChanged(DateKey(2025, 6, 3).toPage(DateKey.appEpoch));
+
+      expect(called, [DateKey(2025, 6, 1), DateKey(2025, 6, 2), DateKey(2025, 6, 3)]);
+    });
+
+    test('goToDate 자체는 onDateChanged를 호출하지 않음 (echo 차단)', () {
+      final called = <DateKey>[];
+      final c = _make(onDateChanged: called.add);
+      addTearDown(c.dispose);
+
+      c.goToDate(DateKey(2025, 6, 1));
 
       expect(called, isEmpty);
     });
 
-    test('second onPageChanged after jump — onDateChanged called', () {
+    test('swipe 뒤 echo goToDate 후에도 다음 onPageChanged 정상 동작 (플래그 미잔존)', () {
       final called = <DateKey>[];
       final c = _make(onDateChanged: called.add);
       addTearDown(c.dispose);
 
+      // 스와이프 → 헤더 갱신 → ref.listen echo goToDate(같은 날짜)
+      c.onPageChanged(DateKey(2025, 6, 1).toPage(DateKey.appEpoch));
       c.goToDate(DateKey(2025, 6, 1));
-      c.onPageChanged(DateKey(2025, 6, 1).toPage(DateKey.appEpoch)); // consumed
-      final page2 = DateKey(2025, 6, 2).toPage(DateKey.appEpoch);
-      c.onPageChanged(page2);
+      // 다음 스와이프
+      c.onPageChanged(DateKey(2025, 6, 2).toPage(DateKey.appEpoch));
 
-      expect(called, [DateKey(2025, 6, 2)]);
+      expect(called, [DateKey(2025, 6, 1), DateKey(2025, 6, 2)]);
     });
 
     test('clearSelection resets dragState', () {
