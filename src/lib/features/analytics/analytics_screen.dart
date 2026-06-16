@@ -9,6 +9,8 @@ import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/time_utils.dart';
+import '../../core/models/date_key.dart';
+import '../grid/calendar_modal.dart';
 import 'analytics_engine.dart';
 import 'analytics_view_model.dart';
 
@@ -49,6 +51,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     final blockStyle = ref.watch(appearanceServiceProvider);
     final isGlass = blockStyle == TimeBlockStyle.liquidGlass;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final vm = ref.read(analyticsViewModelProvider.notifier);
+    final period = _periods[_tab.index];
 
     return Scaffold(
       backgroundColor: isGlass ? Colors.transparent : null,
@@ -56,7 +61,16 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         backgroundColor: isGlass
             ? Colors.transparent
             : Theme.of(context).scaffoldBackgroundColor,
-        title: const Text('분석'),
+        title: CalendarHeaderButton(
+          label: AnalyticsViewModel.labelFor(period, anchor),
+          selectedDate: anchor,
+          onDateSelected: vm.goToDate,
+        ),
+        centerTitle: false,
+        actions: [
+          if (anchor != DateKey.today())
+            TodayResetButton(onPressed: vm.goToToday),
+        ],
         bottom: TabBar(
           controller: _tab,
           dividerColor: Theme.of(context).dividerColor,
@@ -111,7 +125,8 @@ class _PeriodView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = AnalyticsViewModel.dateRangeFor(period);
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final range = AnalyticsViewModel.dateRangeFor(period, anchor);
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 
@@ -124,7 +139,7 @@ class _PeriodView extends ConsumerWidget {
           if (stats.isEmpty) {
             return Center(
               child: Text(
-                '${AnalyticsViewModel.labelFor(period)} 기록이 없어요.',
+                '${AnalyticsViewModel.labelFor(period, anchor)} 기록이 없어요.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             );
@@ -153,11 +168,15 @@ class _PeriodView extends ConsumerWidget {
                   return PieChartSectionData(
                     borderSide: isGlass
                         ? BorderSide(
-                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
+                            color: Colors.white.withValues(
+                              alpha: AppTheme.glassBorderAlpha,
+                            ),
                             width: 1,
                           )
                         : BorderSide.none,
-                    color: isGlass ? color.withValues(alpha: AppTheme.glassSectionAlpha) : color,
+                    color: isGlass
+                        ? color.withValues(alpha: AppTheme.glassSectionAlpha)
+                        : color,
                     value: s.totalMinutes.toDouble(),
                     title: isTouched ? '$pct%' : '',
                     radius: isTouched ? 80 : 64,
@@ -191,15 +210,21 @@ class _PeriodView extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: AppTheme.glassBorderAlpha),
+                            color: Colors.white.withValues(
+                              alpha: AppTheme.glassBorderAlpha,
+                            ),
                             width: 1,
                           ),
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayHigh),
-                              Colors.white.withValues(alpha: AppTheme.glassCardOverlayLow),
+                              Colors.white.withValues(
+                                alpha: AppTheme.glassCardOverlayHigh,
+                              ),
+                              Colors.white.withValues(
+                                alpha: AppTheme.glassCardOverlayLow,
+                              ),
                             ],
                           ),
                         ),
@@ -254,7 +279,11 @@ class _HeatmapView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = AnalyticsViewModel.dateRangeFor(AnalyticsPeriod.heatmap);
+    final anchor = ref.watch(analyticsViewModelProvider).anchorDate;
+    final range = AnalyticsViewModel.dateRangeFor(
+      AnalyticsPeriod.heatmap,
+      anchor,
+    );
     final blocksAsync = ref.watch(timeBlocksRangeProvider(range));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
     final threshold = ref.watch(analyticsViewModelProvider).heatmapThreshold;

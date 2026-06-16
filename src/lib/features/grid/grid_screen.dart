@@ -121,31 +121,22 @@ class _GridScreenState extends ConsumerState<GridScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             automaticallyImplyLeading: false,
-            title: TextButton(
-              onPressed: () => showCalendarModal(
-                context: context,
-                selectedDate: selectedDate,
-                onDateSelected: (date) {
-                  vm.goToDate(date);
-                  _coordinator.clearSelection();
-                },
-              ),
-              child: Text(
-                '${selectedDate.year}년 ${selectedDate.month}월',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
+            title: CalendarHeaderButton(
+              label: '${selectedDate.year}년 ${selectedDate.month}월',
+              selectedDate: selectedDate,
+              onDateSelected: (date) {
+                vm.goToDate(date);
+                _coordinator.clearSelection();
+              },
             ),
             centerTitle: false,
             actions: [
               if (DateKey.today() != selectedDate)
-                TextButton(
+                TodayResetButton(
                   onPressed: () {
                     vm.goToToday();
                     _coordinator.clearSelection();
                   },
-                  child: const Text('오늘', style: TextStyle(fontSize: 14)),
                 ),
             ],
           ),
