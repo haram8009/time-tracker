@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glass Theme Options</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #111; color: #fff; padding: 24px; }
+
+  h1 { font-size: 18px; font-weight: 700; margin-bottom: 24px; color: #fff; }
+  h2 { font-size: 13px; font-weight: 600; color: #8E8E93; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .desc { font-size: 12px; color: #636366; margin-bottom: 16px; line-height: 1.5; }
+
+  .section { margin-bottom: 40px; }
+
+  /* ── Grid container ── */
+  .grid {
+    width: 200px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #2C2C2E;
+  }
+  .grid-row {
+    display: flex;
+    align-items: stretch;
+    height: 48px;
+    border-bottom: 1px solid #2C2C2E;
+    position: relative;
+  }
+  .grid-row:last-child { border-bottom: none; }
+  .time-label {
+    width: 36px;
+    font-size: 10px;
+    color: #636366;
+    padding: 4px 4px 0 6px;
+    flex-shrink: 0;
+  }
+  .cell {
+    flex: 1;
+    position: relative;
+    border-left: 1px solid #2C2C2E;
+  }
+
+  /* ── Option A: Real blur (gradient bg + backdrop-filter) ── */
+  .bg-gradient {
+    background: linear-gradient(135deg,
+      #1C1C1E 0%,
+      #2A1F3D 25%,
+      #1A2A3A 50%,
+      #1C2E1C 75%,
+      #1C1C1E 100%
+    );
+  }
+  .block-blur {
+    position: absolute;
+    inset: 2px 3px;
+    border-radius: 8px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.35);
+    padding: 3px 6px;
+    overflow: hidden;
+  }
+  .block-blur::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+  }
+  .block-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Option B: Fake glass (no blur) ── */
+  .bg-solid-dark { background: #1C1C1E; }
+  .block-fake {
+    position: absolute;
+    inset: 2px 3px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.28);
+    padding: 3px 6px;
+    overflow: hidden;
+  }
+  .block-fake::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(160deg,
+      rgba(255,255,255,0.18) 0%,
+      rgba(255,255,255,0.04) 40%,
+      transparent 100%
+    );
+  }
+  .block-fake::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 40%;
+    border-radius: 8px 8px 0 0;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.12) 0%,
+      transparent 100%
+    );
+  }
+
+  /* ── Option C: Both ── */
+  .block-both {
+    position: absolute;
+    inset: 2px 3px;
+    border-radius: 8px;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.4);
+    padding: 3px 6px;
+    overflow: hidden;
+  }
+  .block-both::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(160deg,
+      rgba(255,255,255,0.2) 0%,
+      rgba(255,255,255,0.04) 50%,
+      transparent 100%
+    );
+  }
+  .block-both::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* color tints */
+  .tint-teal  { background: rgba(78,205,196,0.25); }
+  .tint-red   { background: rgba(255,107,107,0.25); }
+  .tint-indigo{ background: rgba(88,86,214,0.25); }
+
+  /* ── Current (broken) ── */
+  .section-current .grid { opacity: 1; }
+  .block-current {
+    position: absolute;
+    inset: 2px 3px;
+    border-radius: 8px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.45);
+    padding: 3px 6px;
+  }
+
+  .row-options { display: flex; gap: 24px; flex-wrap: wrap; }
+  .option-card {
+    background: #1C1C1E;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid #2C2C2E;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    letter-spacing: 0.3px;
+  }
+  .badge-a { background: #1D3A5C; color: #64B5F6; }
+  .badge-b { background: #1A3A1A; color: #81C784; }
+  .badge-c { background: #3A1A3A; color: #CE93D8; }
+  .badge-now { background: #3A2A1A; color: #FFB74D; }
+</style>
+</head>
+<body>
+
+<h1>Glass Theme — 3가지 개선 방향</h1>
+
+<div class="row-options">
+
+  <!-- CURRENT (broken) -->
+  <div class="option-card">
+    <span class="badge badge-now">현재 (broken)</span>
+    <h2>Blur + 단색 배경</h2>
+    <p class="desc">BackdropFilter blur 12<br>단색 배경 → blur 효과 없음</p>
+    <div class="grid bg-solid-dark">
+      <div class="grid-row">
+        <span class="time-label">09</span>
+        <div class="cell">
+          <div class="block-current tint-teal">
+            <span class="block-label">수면</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">10</span>
+        <div class="cell">
+          <div class="block-current tint-red">
+            <span class="block-label">업무</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">11</span>
+        <div class="cell"></div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">12</span>
+        <div class="cell">
+          <div class="block-current tint-indigo">
+            <span class="block-label">독서</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION A -->
+  <div class="option-card">
+    <span class="badge badge-a">A — 진짜 blur</span>
+    <h2>그라디언트 배경 + Blur</h2>
+    <p class="desc">Scaffold에 컬러 그라디언트 추가<br>BackdropFilter가 그걸 블러함</p>
+    <div class="grid bg-gradient">
+      <div class="grid-row">
+        <span class="time-label">09</span>
+        <div class="cell">
+          <div class="block-blur tint-teal">
+            <span class="block-label">수면</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">10</span>
+        <div class="cell">
+          <div class="block-blur tint-red">
+            <span class="block-label">업무</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">11</span>
+        <div class="cell"></div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">12</span>
+        <div class="cell">
+          <div class="block-blur tint-indigo">
+            <span class="block-label">독서</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="option-card">
+    <span class="badge badge-b">B — Fake glass</span>
+    <h2>하이라이트 + 그라디언트</h2>
+    <p class="desc">blur 없음. 상단 shimmer·테두리·<br>그라디언트로 glass 느낌 연출</p>
+    <div class="grid bg-solid-dark">
+      <div class="grid-row">
+        <span class="time-label">09</span>
+        <div class="cell">
+          <div class="block-fake tint-teal">
+            <span class="block-label">수면</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">10</span>
+        <div class="cell">
+          <div class="block-fake tint-red">
+            <span class="block-label">업무</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">11</span>
+        <div class="cell"></div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">12</span>
+        <div class="cell">
+          <div class="block-fake tint-indigo">
+            <span class="block-label">독서</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="option-card">
+    <span class="badge badge-c">C — 둘 다</span>
+    <h2>그라디언트 배경 + Blur + 하이라이트</h2>
+    <p class="desc">A + B 조합. saturate(180%) 추가로<br>색감이 더 선명하게 보임</p>
+    <div class="grid bg-gradient">
+      <div class="grid-row">
+        <span class="time-label">09</span>
+        <div class="cell">
+          <div class="block-both tint-teal">
+            <span class="block-label">수면</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">10</span>
+        <div class="cell">
+          <div class="block-both tint-red">
+            <span class="block-label">업무</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">11</span>
+        <div class="cell"></div>
+      </div>
+      <div class="grid-row">
+        <span class="time-label">12</span>
+        <div class="cell">
+          <div class="block-both tint-indigo">
+            <span class="block-label">독서</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-package com.haram8009.time_tracker
+package com.haram8009.logit
 
 import io.flutter.embedding.android.FlutterActivity
 

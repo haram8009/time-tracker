@@ -1,1 +1,11 @@
 .claude/handoff.md
+.claude/worktrees/
+.DS_Store
+.idea/
+.vscode/
+src/core/
+src/android/.kotlin/
+src/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+src/ios/Runner.xcworkspace/xcshareddata/swiftpm/
+src/macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+src/macos/Runner.xcworkspace/xcshareddata/swiftpm/
