@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../core/db/time_block_store.dart';
 import '../../core/models/date_key.dart';
+import 'record_dot.dart';
 
 /// Opens a calendar bottom-sheet. Calls [onDateSelected] and closes on day tap.
 /// Header year-label tap → year view (12-month grid) → month tap → back to month view.
@@ -73,7 +76,7 @@ class TodayResetButton extends StatelessWidget {
   }
 }
 
-class _CalendarModalContent extends StatefulWidget {
+class _CalendarModalContent extends ConsumerStatefulWidget {
   const _CalendarModalContent({
     required this.selectedDate,
     required this.onDateSelected,
@@ -83,10 +86,11 @@ class _CalendarModalContent extends StatefulWidget {
   final void Function(DateTime) onDateSelected;
 
   @override
-  State<_CalendarModalContent> createState() => _CalendarModalContentState();
+  ConsumerState<_CalendarModalContent> createState() =>
+      _CalendarModalContentState();
 }
 
-class _CalendarModalContentState extends State<_CalendarModalContent> {
+class _CalendarModalContentState extends ConsumerState<_CalendarModalContent> {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
   bool _yearViewActive = false;
@@ -143,11 +147,23 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
     final colorScheme = Theme.of(context).colorScheme;
     final today = _today;
 
-    return TableCalendar<void>(
+    // Records in the focused month (1st–last); empty while loading/on error.
+    final monthStart = DateKey(_focusedDay.year, _focusedDay.month, 1);
+    final monthEnd =
+        DateKey.fromDateTime(DateTime(_focusedDay.year, _focusedDay.month + 1, 0));
+    final recordDates = ref
+        .watch(timeBlocksRangeProvider((monthStart, monthEnd)))
+        .maybeWhen(data: recordDatesOf, orElse: () => const <DateKey>{});
+
+    return TableCalendar<DateKey>(
       firstDay: _firstDay,
       lastDay: today,
       focusedDay: _focusedDay,
       selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
+      eventLoader: (day) {
+        final key = DateKey.fromDateTime(day);
+        return recordDates.contains(key) ? [key] : const [];
+      },
       calendarFormat: CalendarFormat.month,
       availableCalendarFormats: const {CalendarFormat.month: ''},
       startingDayOfWeek: StartingDayOfWeek.sunday,
@@ -190,6 +206,16 @@ class _CalendarModalContentState extends State<_CalendarModalContent> {
         titleTextFormatter: (date, locale) => '${date.year}년 ${date.month}월',
       ),
       calendarBuilders: CalendarBuilders(
+        markerBuilder: (context, day, events) {
+          if (events.isEmpty) return const SizedBox.shrink();
+          return const Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: RecordDot(),
+            ),
+          );
+        },
         headerTitleBuilder: (context, day) => GestureDetector(
           onTap: _enterYearView,
           child: Padding(
