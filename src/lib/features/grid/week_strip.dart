@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/db/time_block_store.dart';
 import '../../core/models/date_key.dart';
+import 'record_dot.dart';
 
 /// Returns the Sunday that begins the week containing [date].
 DateKey weekStartDate(DateKey date) {
@@ -28,7 +31,7 @@ WeekCellState weekCellState(
 }
 
 /// Horizontal 7-day strip showing the week that contains [selectedDate].
-class WeekStrip extends StatelessWidget {
+class WeekStrip extends ConsumerWidget {
   const WeekStrip({
     super.key,
     required this.selectedDate,
@@ -42,10 +45,18 @@ class WeekStrip extends StatelessWidget {
   static const List<String> _labels = ['일', '월', '화', '수', '목', '금', '토'];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final today = DateKey.today();
     final sunday = weekStartDate(selectedDate);
+    final saturday = sunday.add(const Duration(days: 6));
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Dates with records in the displayed week; empty while loading/on error.
+    final recordDates = ref.watch(timeBlocksRangeProvider((sunday, saturday)))
+        .maybeWhen(
+          data: recordDatesOf,
+          orElse: () => const <DateKey>{},
+        );
 
     return SizedBox(
       height: height,
@@ -58,6 +69,7 @@ class WeekStrip extends StatelessWidget {
               date: cellDate,
               label: _labels[i],
               state: state,
+              hasRecord: recordDates.contains(cellDate),
               colorScheme: colorScheme,
               onTap: state == WeekCellState.future
                   ? null
@@ -75,6 +87,7 @@ class _DayCell extends StatelessWidget {
     required this.date,
     required this.label,
     required this.state,
+    required this.hasRecord,
     required this.colorScheme,
     required this.onTap,
   });
@@ -82,6 +95,7 @@ class _DayCell extends StatelessWidget {
   final DateKey date;
   final String label;
   final WeekCellState state;
+  final bool hasRecord;
   final ColorScheme colorScheme;
   final VoidCallback? onTap;
 
@@ -117,17 +131,22 @@ class _DayCell extends StatelessWidget {
             child: Center(child: numberText),
           );
 
-    final dot = isToday
-        ? Container(
-            width: 4,
-            height: 4,
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
-          )
-        : const SizedBox(height: 6);
+    // Dot slot: today → primary dot; other record day → grey dot; else empty.
+    // Today's dot wins so the two never overlap in the shared slot.
+    final Widget dot;
+    if (isToday) {
+      dot = Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: RecordDot(color: colorScheme.primary),
+      );
+    } else if (hasRecord) {
+      dot = const Padding(
+        padding: EdgeInsets.only(top: 2),
+        child: RecordDot(),
+      );
+    } else {
+      dot = const SizedBox(height: 6);
+    }
 
     Widget cell = Column(
       mainAxisAlignment: MainAxisAlignment.center,
