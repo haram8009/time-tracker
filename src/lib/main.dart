@@ -2,7 +2,12 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/auth/auth_controller.dart';
+import 'core/auth/auth_port.dart';
+import 'core/auth/supabase_auth_adapter.dart';
 import 'core/db/database_helper.dart';
 import 'core/models/time_block_style.dart';
 import 'core/notifications/notification_port.dart';
@@ -34,16 +39,41 @@ void main() async {
   );
   await scheduleWeeklyFallbackNotifications(settings, port);
 
+  final authPort = await _initAuthPort();
+
   runApp(
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
         sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
         notificationPortProvider.overrideWithValue(port),
+        authPortProvider.overrideWithValue(authPort),
       ],
       child: const TimeTrackerApp(),
     ),
   );
+}
+
+// Cloud sync config (see docs/supabase-cloud-sync.md). Passed via --dart-define;
+// absent in guest-only builds, in which case cloud login is disabled.
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const _googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+const _googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+
+/// Initializes Supabase + Google sign-in when configured, else falls back to a
+/// guest-only port so the app runs fully offline with local SQLite.
+Future<AuthPort> _initAuthPort() async {
+  if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
+    return const GuestAuthPort();
+  }
+
+  await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseAnonKey);
+  await GoogleSignIn.instance.initialize(
+    clientId: _googleIosClientId.isEmpty ? null : _googleIosClientId,
+    serverClientId: _googleWebClientId.isEmpty ? null : _googleWebClientId,
+  );
+  return SupabaseAuthAdapter(supabase: Supabase.instance.client);
 }
 
 class TimeTrackerApp extends ConsumerWidget {
