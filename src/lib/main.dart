@@ -9,6 +9,9 @@ import 'core/auth/auth_controller.dart';
 import 'core/auth/auth_port.dart';
 import 'core/auth/supabase_auth_adapter.dart';
 import 'core/db/database_helper.dart';
+import 'core/sync/cloud_promotion_service.dart';
+import 'core/sync/cloud_sync_port.dart';
+import 'core/sync/supabase_cloud_sync_adapter.dart';
 import 'core/models/time_block_style.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/services/appearance_service.dart';
@@ -39,7 +42,7 @@ void main() async {
   );
   await scheduleWeeklyFallbackNotifications(settings, port);
 
-  final authPort = await _initAuthPort();
+  final cloud = await _initCloud();
 
   runApp(
     ProviderScope(
@@ -47,7 +50,9 @@ void main() async {
         databaseProvider.overrideWithValue(db),
         sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
         notificationPortProvider.overrideWithValue(port),
-        authPortProvider.overrideWithValue(authPort),
+        authPortProvider.overrideWithValue(cloud.authPort),
+        if (cloud.syncPort != null)
+          cloudSyncPortProvider.overrideWithValue(cloud.syncPort!),
       ],
       child: const TimeTrackerApp(),
     ),
@@ -61,11 +66,17 @@ const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 const _googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 const _googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 
+class _CloudPorts {
+  final AuthPort authPort;
+  final CloudSyncPort? syncPort;
+  const _CloudPorts(this.authPort, this.syncPort);
+}
+
 /// Initializes Supabase + Google sign-in when configured, else falls back to a
 /// guest-only port so the app runs fully offline with local SQLite.
-Future<AuthPort> _initAuthPort() async {
+Future<_CloudPorts> _initCloud() async {
   if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
-    return const GuestAuthPort();
+    return const _CloudPorts(GuestAuthPort(), null);
   }
 
   await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseAnonKey);
@@ -73,7 +84,11 @@ Future<AuthPort> _initAuthPort() async {
     clientId: _googleIosClientId.isEmpty ? null : _googleIosClientId,
     serverClientId: _googleWebClientId.isEmpty ? null : _googleWebClientId,
   );
-  return SupabaseAuthAdapter(supabase: Supabase.instance.client);
+  final client = Supabase.instance.client;
+  return _CloudPorts(
+    SupabaseAuthAdapter(supabase: client),
+    SupabaseCloudSyncAdapter(client),
+  );
 }
 
 class TimeTrackerApp extends ConsumerWidget {
@@ -81,6 +96,15 @@ class TimeTrackerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // On the first transition into a signed-in state, promote local guest data
+    // to the cloud. Idempotent, so re-signing in is safe.
+    ref.listen(authControllerProvider, (prev, next) {
+      final signedInNow = prev?.account == null && next.account != null;
+      if (signedInNow) {
+        ref.read(cloudPromotionServiceProvider).promote(next.account!.id);
+      }
+    });
+
     final themeMode = ref.watch(themeModeServiceProvider);
     return MaterialApp(
       title: 'Time Tracker',
