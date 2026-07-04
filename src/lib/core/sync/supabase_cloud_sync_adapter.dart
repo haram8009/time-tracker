@@ -27,4 +27,28 @@ class SupabaseCloudSyncAdapter implements CloudSyncPort {
         .from('user_settings')
         .upsert(settings.toMap(), onConflict: 'owner_id');
   }
+
+  @override
+  Future<List<RemoteCategory>> fetchCategories(String ownerId) async {
+    final rows =
+        await _client.from('categories').select().eq('owner_id', ownerId);
+    return rows.map(RemoteCategory.fromMap).toList();
+  }
+
+  @override
+  Future<List<RemoteTimeBlock>> fetchTimeBlocks(String ownerId) async {
+    final rows =
+        await _client.from('time_blocks').select().eq('owner_id', ownerId);
+    return rows.map(RemoteTimeBlock.fromMap).toList();
+  }
+
+  @override
+  Future<RemoteSettings?> fetchSettings(String ownerId) async {
+    final row = await _client
+        .from('user_settings')
+        .select()
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+    return row == null ? null : RemoteSettings.fromMap(row);
+  }
 }

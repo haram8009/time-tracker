@@ -136,6 +136,18 @@ class TimeBlockStore {
     }
   }
 
+  /// Re-emits [changes] and every active per-date watcher after external
+  /// writes (e.g. cloud pull) that bypass the store's mutation methods.
+  Future<void> refreshWatchers() async {
+    if (!_changesController.isClosed) _changesController.add(null);
+    for (final key in _controllers.keys.toList()) {
+      final controller = _controllers[key];
+      if (controller == null || controller.isClosed) continue;
+      final list = await fetchByDate(DateKey.fromDbString(key));
+      if (!controller.isClosed) controller.add(list);
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<void> _notify(DateKey date) async {

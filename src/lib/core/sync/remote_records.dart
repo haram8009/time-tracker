@@ -24,6 +24,18 @@ class RemoteCategory {
     this.deletedAt,
   });
 
+  factory RemoteCategory.fromMap(Map<String, Object?> map) => RemoteCategory(
+        id: map['id'] as String,
+        ownerId: map['owner_id'] as String,
+        name: map['name'] as String,
+        colorHex: map['color_hex'] as String,
+        isPreset: map['is_preset'] as bool,
+        isHidden: map['is_hidden'] as bool,
+        sortOrder: (map['sort_order'] as num).toInt(),
+        updatedAt: map['updated_at'] as String,
+        deletedAt: map['deleted_at'] as String?,
+      );
+
   Map<String, Object?> toMap() => {
         'id': id,
         'owner_id': ownerId,
@@ -60,6 +72,18 @@ class RemoteTimeBlock {
     this.deletedAt,
   });
 
+  factory RemoteTimeBlock.fromMap(Map<String, Object?> map) => RemoteTimeBlock(
+        id: map['id'] as String,
+        ownerId: map['owner_id'] as String,
+        categoryId: map['category_id'] as String,
+        date: map['date'] as String,
+        startMinute: (map['start_minute'] as num).toInt(),
+        endMinute: (map['end_minute'] as num).toInt(),
+        note: map['note'] as String?,
+        updatedAt: map['updated_at'] as String,
+        deletedAt: map['deleted_at'] as String?,
+      );
+
   Map<String, Object?> toMap() => {
         'id': id,
         'owner_id': ownerId,
@@ -87,6 +111,14 @@ class RemoteSettings {
     required this.sleepEndMinute,
     required this.updatedAt,
   });
+
+  factory RemoteSettings.fromMap(Map<String, Object?> map) => RemoteSettings(
+        ownerId: map['owner_id'] as String,
+        notificationEnabled: map['notification_enabled'] as bool,
+        sleepStartMinute: (map['sleep_start_minute'] as num).toInt(),
+        sleepEndMinute: (map['sleep_end_minute'] as num).toInt(),
+        updatedAt: map['updated_at'] as String,
+      );
 
   Map<String, Object?> toMap() => {
         'owner_id': ownerId,

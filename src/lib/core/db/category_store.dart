@@ -153,6 +153,10 @@ class CategoryStore {
     await _notify();
   }
 
+  /// Re-emits both watcher streams after external writes (e.g. cloud pull)
+  /// that bypass the store's mutation methods.
+  Future<void> refreshWatchers() => _notify();
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<void> _notify() async {
