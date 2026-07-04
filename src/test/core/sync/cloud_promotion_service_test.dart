@@ -61,6 +61,18 @@ class _FakeCloud implements CloudSyncPort {
   @override
   Future<void> upsertSettings(RemoteSettings s) async =>
       settings[s.ownerId] = s;
+
+  @override
+  Future<List<RemoteCategory>> fetchCategories(String ownerId) async =>
+      categories.values.where((c) => c.ownerId == ownerId).toList();
+
+  @override
+  Future<List<RemoteTimeBlock>> fetchTimeBlocks(String ownerId) async =>
+      blocks.values.where((b) => b.ownerId == ownerId).toList();
+
+  @override
+  Future<RemoteSettings?> fetchSettings(String ownerId) async =>
+      settings[ownerId];
 }
 
 // ---------------------------------------------------------------------------

@@ -8,8 +8,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/auth/auth_controller.dart';
 import 'core/auth/auth_port.dart';
 import 'core/auth/supabase_auth_adapter.dart';
+import 'core/db/category_store.dart';
 import 'core/db/database_helper.dart';
+import 'core/db/time_block_store.dart';
+import 'core/services/settings_service.dart';
 import 'core/sync/cloud_promotion_service.dart';
+import 'core/sync/cloud_pull_service.dart';
 import 'core/sync/cloud_sync_port.dart';
 import 'core/sync/supabase_cloud_sync_adapter.dart';
 import 'core/models/time_block_style.dart';
@@ -17,7 +21,6 @@ import 'core/notifications/notification_port.dart';
 import 'core/services/appearance_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/notifications/notification_scheduler.dart';
-import 'core/notifications/notification_settings.dart';
 import 'core/services/preferences_port.dart';
 import 'features/analytics/analytics_screen.dart';
 import 'features/grid/grid_screen.dart';
@@ -92,17 +95,28 @@ Future<_CloudPorts> _initCloud() async {
   );
 }
 
+/// Pull runs before promotion so a fresh device adopts existing cloud rows
+/// (marking them synced) first — otherwise its seeded presets would be pushed
+/// up as duplicates. Fire-and-forget; sync status/error UX lands with #95.
+Future<void> _syncOnSignIn(WidgetRef ref, String ownerId) async {
+  await ref.read(cloudPullServiceProvider).pull(ownerId);
+  await ref.read(cloudPromotionServiceProvider).promote(ownerId);
+  await ref.read(categoryStoreProvider).refreshWatchers();
+  await ref.read(timeBlockStoreProvider).refreshWatchers();
+  await ref.read(settingsServiceProvider.notifier).reload();
+}
+
 class TimeTrackerApp extends ConsumerWidget {
   const TimeTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On the first transition into a signed-in state, promote local guest data
-    // to the cloud. Idempotent, so re-signing in is safe.
+    // On the first transition into a signed-in state, sync with the cloud.
+    // Idempotent, so re-signing in is safe.
     ref.listen(authControllerProvider, (prev, next) {
       final signedInNow = prev?.account == null && next.account != null;
       if (signedInNow) {
-        ref.read(cloudPromotionServiceProvider).promote(next.account!.id);
+        _syncOnSignIn(ref, next.account!.id);
       }
     });
 

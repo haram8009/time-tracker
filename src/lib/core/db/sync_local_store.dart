@@ -78,6 +78,62 @@ class SyncLocalStore {
         where: 'id = ?',
         whereArgs: [localId],
       );
+
+  /// Local category rows keyed by remote uuid, for reconciling pulled data.
+  Future<Map<String, Map<String, Object?>>> categoriesByRemoteId() =>
+      _rowsByRemoteId('categories');
+
+  /// Local time_block rows keyed by remote uuid.
+  Future<Map<String, Map<String, Object?>>> timeBlocksByRemoteId() =>
+      _rowsByRemoteId('time_blocks');
+
+  Future<Map<String, Map<String, Object?>>> _rowsByRemoteId(
+      String table) async {
+    final rows = await _db.query(table, where: 'remoteId IS NOT NULL');
+    return {
+      for (final r in rows) r[SyncColumns.remoteId] as String: r,
+    };
+  }
+
+  /// Inserts or updates a local category from pulled remote [values] (caller
+  /// stamps them synced — pulled rows must not echo back to the cloud).
+  /// Targets the row already carrying [remoteId], or [adoptLocalId] when a
+  /// local-only row takes over the remote identity, else inserts a new row.
+  /// Returns the local id.
+  Future<int> upsertCategoryFromRemote(
+    String remoteId,
+    Map<String, Object?> values, {
+    int? adoptLocalId,
+  }) =>
+      _upsertFromRemote('categories', remoteId, values,
+          adoptLocalId: adoptLocalId);
+
+  /// Same as [upsertCategoryFromRemote] for time_blocks.
+  Future<int> upsertTimeBlockFromRemote(
+    String remoteId,
+    Map<String, Object?> values,
+  ) =>
+      _upsertFromRemote('time_blocks', remoteId, values);
+
+  Future<int> _upsertFromRemote(
+    String table,
+    String remoteId,
+    Map<String, Object?> values, {
+    int? adoptLocalId,
+  }) async {
+    if (adoptLocalId != null) {
+      await _db.update(table, values, where: 'id = ?', whereArgs: [adoptLocalId]);
+      return adoptLocalId;
+    }
+    final updated = await _db
+        .update(table, values, where: 'remoteId = ?', whereArgs: [remoteId]);
+    if (updated > 0) {
+      final row = await _db.query(table,
+          columns: ['id'], where: 'remoteId = ?', whereArgs: [remoteId]);
+      return row.single['id'] as int;
+    }
+    return _db.insert(table, values);
+  }
 }
 
 final syncLocalStoreProvider = Provider<SyncLocalStore>(

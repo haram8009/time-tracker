@@ -45,6 +45,13 @@ class SettingsService extends StateNotifier<NotificationSettings> {
     await _prefs.setInt(_keySleepEnd, minute);
     await scheduleWeeklyFallbackNotifications(state, _port);
   }
+
+  /// Re-reads prefs into state and reschedules after an external prefs write
+  /// (e.g. cloud settings pull).
+  Future<void> reload() async {
+    _load();
+    await scheduleWeeklyFallbackNotifications(state, _port);
+  }
 }
 
 final settingsServiceProvider =
