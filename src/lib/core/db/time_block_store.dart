@@ -7,6 +7,7 @@ import '../logic/block_replace_reducer.dart';
 import '../models/date_key.dart';
 import '../models/time_block.dart';
 import 'database_helper.dart';
+import 'sync_metadata.dart';
 
 // ---------------------------------------------------------------------------
 // Store
@@ -77,60 +78,12 @@ class TimeBlockStore {
   Future<TimeBlock> insert(TimeBlock block) async {
     final id = await _db.insert(
       'time_blocks',
-      block.toMap(),
+      stampPending(block.toMap()),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     final created = block.copyWith(id: id);
     await _notify(block.date);
     return created;
-  }
-
-  /// Inserts [block], merging with adjacent same-category blocks if present.
-  Future<TimeBlock> mergeOrInsert(TimeBlock block) async {
-    late TimeBlock result;
-
-    await _db.transaction((txn) async {
-      final prevRows = await txn.query(
-        'time_blocks',
-        where: 'date = ? AND categoryId = ? AND endMinute = ?',
-        whereArgs: [block.date.toDbString(), block.categoryId, block.startMinute],
-        limit: 1,
-      );
-      final nextRows = await txn.query(
-        'time_blocks',
-        where: 'date = ? AND categoryId = ? AND startMinute = ?',
-        whereArgs: [block.date.toDbString(), block.categoryId, block.endMinute],
-        limit: 1,
-      );
-
-      final prev = prevRows.isNotEmpty ? TimeBlock.fromMap(prevRows.first) : null;
-      final next = nextRows.isNotEmpty ? TimeBlock.fromMap(nextRows.first) : null;
-
-      if (prev != null && next != null) {
-        final merged = prev.copyWith(endMinute: next.endMinute);
-        await txn.update('time_blocks', merged.toMap(),
-            where: 'id = ?', whereArgs: [prev.id]);
-        await txn.delete('time_blocks', where: 'id = ?', whereArgs: [next.id]);
-        result = merged;
-      } else if (prev != null) {
-        final extended = prev.copyWith(endMinute: block.endMinute);
-        await txn.update('time_blocks', extended.toMap(),
-            where: 'id = ?', whereArgs: [prev.id]);
-        result = extended;
-      } else if (next != null) {
-        final extended = next.copyWith(startMinute: block.startMinute);
-        await txn.update('time_blocks', extended.toMap(),
-            where: 'id = ?', whereArgs: [next.id]);
-        result = extended;
-      } else {
-        final id = await txn.insert('time_blocks', block.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-        result = block.copyWith(id: id);
-      }
-    });
-
-    await _notify(block.date);
-    return result;
   }
 
   /// Replaces [startMinute, endMinute) with [block], handling all overlap cases
@@ -143,10 +96,10 @@ class TimeBlockStore {
       for (final op in ops) {
         switch (op) {
           case InsertOp(:final block):
-            await txn.insert('time_blocks', block.toMap(),
+            await txn.insert('time_blocks', stampPending(block.toMap()),
                 conflictAlgorithm: ConflictAlgorithm.replace);
           case UpdateOp(:final block):
-            await txn.update('time_blocks', block.toMap(),
+            await txn.update('time_blocks', stampPending(block.toMap()),
                 where: 'id = ?', whereArgs: [block.id]);
           case DeleteOp(:final id):
             await txn.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
@@ -162,7 +115,7 @@ class TimeBlockStore {
     assert(block.id != null, 'Cannot update a TimeBlock without an id');
     await _db.update(
       'time_blocks',
-      block.toMap(),
+      stampPending(block.toMap()),
       where: 'id = ?',
       whereArgs: [block.id],
     );

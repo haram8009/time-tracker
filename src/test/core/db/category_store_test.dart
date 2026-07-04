@@ -7,6 +7,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/category_store.dart';
+import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/models/category.dart';
 import 'package:time_tracker/core/services/preferences_port.dart';
 
@@ -38,29 +39,8 @@ late Database db;
 Future<Database> _openTestDb() => databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
-        onCreate: (db, _) async {
-          await db.execute('''
-            CREATE TABLE categories (
-              id       INTEGER PRIMARY KEY AUTOINCREMENT,
-              name     TEXT    NOT NULL,
-              colorHex TEXT    NOT NULL,
-              isPreset INTEGER NOT NULL DEFAULT 0,
-              isHidden INTEGER NOT NULL DEFAULT 0
-            )
-          ''');
-          await db.execute('''
-            CREATE TABLE time_blocks (
-              id          INTEGER PRIMARY KEY AUTOINCREMENT,
-              date        TEXT    NOT NULL,
-              startMinute INTEGER NOT NULL,
-              endMinute   INTEGER NOT NULL,
-              categoryId  INTEGER NOT NULL,
-              note        TEXT,
-              FOREIGN KEY(categoryId) REFERENCES categories(id)
-            )
-          ''');
-        },
+        version: appDatabaseVersion,
+        onCreate: (db, _) => createSchema(db),
       ),
     );
 

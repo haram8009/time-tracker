@@ -20,9 +20,11 @@ class SettingsService extends StateNotifier<NotificationSettings> {
 
   void _load() {
     state = NotificationSettings(
-      enabled: _prefs.getBool(_keyEnabled) ?? true,
-      sleepStartMinute: _prefs.getInt(_keySleepStart) ?? 1380,
-      sleepEndMinute: _prefs.getInt(_keySleepEnd) ?? 420,
+      enabled: _prefs.getBool(_keyEnabled) ?? NotificationSettings.defaultEnabled,
+      sleepStartMinute:
+          _prefs.getInt(_keySleepStart) ?? NotificationSettings.defaultSleepStart,
+      sleepEndMinute:
+          _prefs.getInt(_keySleepEnd) ?? NotificationSettings.defaultSleepEnd,
     );
   }
 

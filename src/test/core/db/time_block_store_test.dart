@@ -6,6 +6,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
 import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
@@ -15,27 +16,9 @@ late Database db;
 Future<Database> _openTestDb() => databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: appDatabaseVersion,
         onCreate: (db, _) async {
-          await db.execute('''
-            CREATE TABLE categories (
-              id       INTEGER PRIMARY KEY AUTOINCREMENT,
-              name     TEXT    NOT NULL,
-              colorHex TEXT    NOT NULL,
-              isPreset INTEGER NOT NULL DEFAULT 0
-            )
-          ''');
-          await db.execute('''
-            CREATE TABLE time_blocks (
-              id          INTEGER PRIMARY KEY AUTOINCREMENT,
-              date        TEXT    NOT NULL,
-              startMinute INTEGER NOT NULL,
-              endMinute   INTEGER NOT NULL,
-              categoryId  INTEGER NOT NULL,
-              note        TEXT,
-              FOREIGN KEY(categoryId) REFERENCES categories(id)
-            )
-          ''');
+          await createSchema(db);
           // Insert a dummy category so foreign-key inserts succeed.
           await db.insert('categories', {
             'name': 'Test',
@@ -173,77 +156,6 @@ void main() {
 
       expect(await store.countByCategory(1), 2);
       expect(await store.countByCategory(2), 1);
-    });
-
-    test('mergeOrInsert – no adjacent blocks: plain insert', () async {
-      final store = TimeBlockStore(db);
-      final result = await store.mergeOrInsert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
-      ));
-      expect(result.id, isNotNull);
-      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
-      expect(all.length, 1);
-      expect(all.first.startMinute, 100);
-      expect(all.first.endMinute, 110);
-    });
-
-    test('mergeOrInsert – prev adjacent same category: extends prev', () async {
-      final store = TimeBlockStore(db);
-      await store.insert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
-      ));
-      await store.mergeOrInsert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
-      ));
-      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
-      expect(all.length, 1);
-      expect(all.first.startMinute, 80);
-      expect(all.first.endMinute, 110);
-    });
-
-    test('mergeOrInsert – next adjacent same category: extends next', () async {
-      final store = TimeBlockStore(db);
-      await store.insert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 110, endMinute: 130, categoryId: 1,
-      ));
-      await store.mergeOrInsert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
-      ));
-      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
-      expect(all.length, 1);
-      expect(all.first.startMinute, 100);
-      expect(all.first.endMinute, 130);
-    });
-
-    test('mergeOrInsert – both adjacent same category: merges three into one', () async {
-      final store = TimeBlockStore(db);
-      await store.insert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
-      ));
-      await store.insert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 110, endMinute: 130, categoryId: 1,
-      ));
-      await store.mergeOrInsert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 1,
-      ));
-      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
-      expect(all.length, 1);
-      expect(all.first.startMinute, 80);
-      expect(all.first.endMinute, 130);
-    });
-
-    test('mergeOrInsert – adjacent but different category: no merge', () async {
-      final store = TimeBlockStore(db);
-      await db.insert('categories', {'name': 'Other', 'colorHex': '#FFFFFF', 'isPreset': 0});
-
-      await store.insert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 80, endMinute: 100, categoryId: 1,
-      ));
-      await store.mergeOrInsert(const TimeBlock(
-        date: DateKey(2026, 5, 27), startMinute: 100, endMinute: 110, categoryId: 2,
-      ));
-      final all = await store.fetchByDate(const DateKey(2026, 5, 27));
-      expect(all.length, 2);
     });
 
     group('replaceRange', () {

@@ -2,8 +2,16 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/auth/auth_controller.dart';
+import 'core/auth/auth_port.dart';
+import 'core/auth/supabase_auth_adapter.dart';
 import 'core/db/database_helper.dart';
+import 'core/sync/cloud_promotion_service.dart';
+import 'core/sync/cloud_sync_port.dart';
+import 'core/sync/supabase_cloud_sync_adapter.dart';
 import 'core/models/time_block_style.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/services/appearance_service.dart';
@@ -26,13 +34,16 @@ void main() async {
   await port.initialize();
 
   final settings = NotificationSettings(
-    enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ?? true,
-    sleepStartMinute:
-        prefsAdapter.getInt(NotificationSettings.keySleepStart) ?? 1380,
-    sleepEndMinute:
-        prefsAdapter.getInt(NotificationSettings.keySleepEnd) ?? 420,
+    enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ??
+        NotificationSettings.defaultEnabled,
+    sleepStartMinute: prefsAdapter.getInt(NotificationSettings.keySleepStart) ??
+        NotificationSettings.defaultSleepStart,
+    sleepEndMinute: prefsAdapter.getInt(NotificationSettings.keySleepEnd) ??
+        NotificationSettings.defaultSleepEnd,
   );
   await scheduleWeeklyFallbackNotifications(settings, port);
+
+  final cloud = await _initCloud();
 
   runApp(
     ProviderScope(
@@ -40,9 +51,44 @@ void main() async {
         databaseProvider.overrideWithValue(db),
         sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
         notificationPortProvider.overrideWithValue(port),
+        authPortProvider.overrideWithValue(cloud.authPort),
+        if (cloud.syncPort != null)
+          cloudSyncPortProvider.overrideWithValue(cloud.syncPort!),
       ],
       child: const TimeTrackerApp(),
     ),
+  );
+}
+
+// Cloud sync config (see docs/supabase-cloud-sync.md). Passed via --dart-define;
+// absent in guest-only builds, in which case cloud login is disabled.
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const _googleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+const _googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+
+class _CloudPorts {
+  final AuthPort authPort;
+  final CloudSyncPort? syncPort;
+  const _CloudPorts(this.authPort, this.syncPort);
+}
+
+/// Initializes Supabase + Google sign-in when configured, else falls back to a
+/// guest-only port so the app runs fully offline with local SQLite.
+Future<_CloudPorts> _initCloud() async {
+  if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
+    return const _CloudPorts(GuestAuthPort(), null);
+  }
+
+  await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseAnonKey);
+  await GoogleSignIn.instance.initialize(
+    clientId: _googleIosClientId.isEmpty ? null : _googleIosClientId,
+    serverClientId: _googleWebClientId.isEmpty ? null : _googleWebClientId,
+  );
+  final client = Supabase.instance.client;
+  return _CloudPorts(
+    SupabaseAuthAdapter(supabase: client),
+    SupabaseCloudSyncAdapter(client),
   );
 }
 
@@ -51,6 +97,15 @@ class TimeTrackerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // On the first transition into a signed-in state, promote local guest data
+    // to the cloud. Idempotent, so re-signing in is safe.
+    ref.listen(authControllerProvider, (prev, next) {
+      final signedInNow = prev?.account == null && next.account != null;
+      if (signedInNow) {
+        ref.read(cloudPromotionServiceProvider).promote(next.account!.id);
+      }
+    });
+
     final themeMode = ref.watch(themeModeServiceProvider);
     return MaterialApp(
       title: 'Time Tracker',

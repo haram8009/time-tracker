@@ -28,11 +28,6 @@ class BlockMutationService {
     await _rescheduleIfToday(date);
   }
 
-  Future<void> update(TimeBlock block) async {
-    await store.update(block);
-    await _rescheduleIfToday(block.date);
-  }
-
   Future<void> _rescheduleIfToday(DateKey date) async {
     if (date == DateKey.today()) {
       final todayBlocks = await store.fetchByDate(DateKey.today());

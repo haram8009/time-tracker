@@ -83,11 +83,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     final todayPage = DateKey.today().toPage(DateKey.appEpoch);
 
     ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
-      if (prev?.dbReady == false && next.dbReady == true) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _coordinator.goToDate(DateKey.today()),
-        );
-      } else if (prev?.selectedDate != next.selectedDate) {
+      if (prev?.selectedDate != next.selectedDate) {
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => _coordinator.goToDate(next.selectedDate),
         );
@@ -97,10 +93,6 @@ class _GridScreenState extends ConsumerState<GridScreen> {
     final vmState = ref.watch(gridScreenViewModelProvider);
     final vm = ref.read(gridScreenViewModelProvider.notifier);
     final blockStyle = ref.watch(appearanceServiceProvider);
-
-    if (!vmState.dbReady) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
 
     final selectedDate = vmState.selectedDate;
     final isGlass = blockStyle == TimeBlockStyle.liquidGlass;

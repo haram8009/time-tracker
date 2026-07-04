@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:time_tracker/core/auth/auth_controller.dart';
+import 'package:time_tracker/core/auth/auth_port.dart';
 import 'package:time_tracker/core/db/category_store.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
 import 'package:time_tracker/core/models/category.dart';
@@ -42,6 +44,7 @@ void main() {
         overrides: [
           sharedPrefsAdapterProvider.overrideWithValue(_FakePrefs()),
           notificationPortProvider.overrideWithValue(_FakeNotificationPort()),
+          authPortProvider.overrideWithValue(const GuestAuthPort()),
           // Keep stream providers in AsyncLoading so data-dependent widgets
           // (which would access categoryStoreProvider/DB) are never built.
           categoriesAllStreamProvider.overrideWith(

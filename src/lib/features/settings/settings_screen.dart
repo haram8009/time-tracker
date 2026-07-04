@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/db/category_store.dart';
 import '../../core/models/category.dart';
 import '../../core/services/category_manager.dart';
@@ -77,6 +78,9 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
+          const _SectionHeader('계정'),
+          const _AccountSection(),
+          const Divider(indent: 16, endIndent: 16),
           SwitchListTile(
             title: const Text('스마트 알림'),
             subtitle: const Text('3시간 이상 기록 공백 감지 시 알림'),
@@ -180,6 +184,69 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  const _SectionHeader(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
+  }
+}
+
+class _AccountSection extends ConsumerWidget {
+  const _AccountSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authControllerProvider, (prev, next) {
+      if (next.error != null && next.error != prev?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.error!)),
+        );
+      }
+    });
+
+    final auth = ref.watch(authControllerProvider);
+    final controller = ref.read(authControllerProvider.notifier);
+    final account = auth.account;
+
+    final trailing = auth.busy
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : account != null
+            ? TextButton(
+                onPressed: controller.signOut,
+                child: const Text('로그아웃'),
+              )
+            : FilledButton.icon(
+                onPressed: controller.signInWithGoogle,
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Google로 로그인'),
+              );
+
+    return ListTile(
+      leading: Icon(account != null ? Icons.cloud_done : Icons.cloud_off),
+      title: Text(account != null ? account.label : '게스트'),
+      subtitle: Text(
+        account != null ? '클라우드 동기화 사용 중' : '로그인하면 여러 기기에서 동기화됩니다',
+      ),
+      trailing: trailing,
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/db/category_store.dart';
+import '../../core/models/category.dart';
 import '../../core/models/date_key.dart';
 import '../../core/models/time_block.dart';
 import '../../core/services/block_mutation_service.dart';
@@ -6,14 +8,12 @@ import 'grid_view_model.dart';
 
 class GridScreenState {
   final DateKey selectedDate;
-  final bool dbReady;
 
-  const GridScreenState({required this.selectedDate, required this.dbReady});
+  const GridScreenState({required this.selectedDate});
 
-  GridScreenState copyWith({DateKey? selectedDate, bool? dbReady}) {
+  GridScreenState copyWith({DateKey? selectedDate}) {
     return GridScreenState(
       selectedDate: selectedDate ?? this.selectedDate,
-      dbReady: dbReady ?? this.dbReady,
     );
   }
 }
@@ -24,7 +24,6 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
   GridScreenViewModel(this._ref)
       : super(GridScreenState(
           selectedDate: DateKey.today(),
-          dbReady: true,
         ));
 
   void goToPreviousDay() =>
@@ -57,6 +56,26 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
 
   Future<void> saveBlock(TimeBlock block) async {
     await _ref.read(blockMutationServiceProvider).save(block);
+  }
+
+  /// CasualCategoryCreation: create a category, then save a block onto it.
+  /// Ordering matters — the block needs the new category's id.
+  Future<void> createCategoryAndSaveBlock({
+    required String name,
+    required String colorHex,
+    required DateKey date,
+    required int startMinute,
+    required int endMinute,
+  }) async {
+    final created = await _ref
+        .read(categoryStoreProvider)
+        .insert(Category(name: name, colorHex: colorHex));
+    await saveBlock(TimeBlock(
+      date: date,
+      startMinute: startMinute,
+      endMinute: endMinute,
+      categoryId: created.id!,
+    ));
   }
 }
 
