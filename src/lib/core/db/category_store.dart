@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/category.dart';
 import '../services/preferences_port.dart';
 import 'database_helper.dart';
+import 'sync_metadata.dart';
 
 // ---------------------------------------------------------------------------
 // Preset data
@@ -49,7 +50,7 @@ class CategoryStore {
       final seeds = _seedCategories ?? _presets;
       final batch = _db.batch();
       for (final preset in seeds) {
-        batch.insert('categories', preset.toMap());
+        batch.insert('categories', stampPending(preset.toMap()));
       }
       await batch.commit(noResult: true);
     }
@@ -99,7 +100,7 @@ class CategoryStore {
   Future<Category> insert(Category category) async {
     final id = await _db.insert(
       'categories',
-      category.toMap(),
+      stampPending(category.toMap()),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     final created = category.copyWith(id: id);
@@ -111,7 +112,7 @@ class CategoryStore {
     assert(category.id != null, 'Cannot update a Category without an id');
     await _db.update(
       'categories',
-      category.toMap(),
+      stampPending(category.toMap()),
       where: 'id = ?',
       whereArgs: [category.id],
     );
@@ -123,7 +124,7 @@ class CategoryStore {
   Future<void> retire(int id) async {
     await _db.update(
       'categories',
-      {'isHidden': 1},
+      stampPending({'isHidden': 1}),
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -145,7 +146,7 @@ class CategoryStore {
   Future<void> restoreDefaults() async {
     await _db.update(
       'categories',
-      {'isHidden': 0},
+      stampPending({'isHidden': 0}),
       where: 'isPreset = ?',
       whereArgs: [1],
     );
