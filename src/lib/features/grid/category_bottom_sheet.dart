@@ -71,19 +71,12 @@ class _CategoryBottomSheetState extends ConsumerState<_CategoryBottomSheet> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
 
-    final created = await ref
-        .read(categoryStoreProvider)
-        .insert(Category(name: name, colorHex: _pickColor(categories)));
-
-    if (!mounted) return;
-
-    await ref.read(gridScreenViewModelProvider.notifier).saveBlock(
-          TimeBlock(
-            date: widget.date,
-            startMinute: widget.startMinute,
-            endMinute: widget.endMinute,
-            categoryId: created.id!,
-          ),
+    await ref.read(gridScreenViewModelProvider.notifier).createCategoryAndSaveBlock(
+          name: name,
+          colorHex: _pickColor(categories),
+          date: widget.date,
+          startMinute: widget.startMinute,
+          endMinute: widget.endMinute,
         );
 
     if (mounted) Navigator.of(context).pop();

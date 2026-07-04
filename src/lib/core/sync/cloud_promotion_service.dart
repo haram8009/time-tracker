@@ -90,11 +90,12 @@ class CloudPromotionService {
   Future<void> _promoteSettings(String ownerId) async {
     await _cloud.upsertSettings(RemoteSettings(
       ownerId: ownerId,
-      notificationEnabled:
-          _prefs.getBool(NotificationSettings.keyEnabled) ?? true,
-      sleepStartMinute:
-          _prefs.getInt(NotificationSettings.keySleepStart) ?? 1380,
-      sleepEndMinute: _prefs.getInt(NotificationSettings.keySleepEnd) ?? 420,
+      notificationEnabled: _prefs.getBool(NotificationSettings.keyEnabled) ??
+          NotificationSettings.defaultEnabled,
+      sleepStartMinute: _prefs.getInt(NotificationSettings.keySleepStart) ??
+          NotificationSettings.defaultSleepStart,
+      sleepEndMinute: _prefs.getInt(NotificationSettings.keySleepEnd) ??
+          NotificationSettings.defaultSleepEnd,
       updatedAt: DateTime.now().toUtc().toIso8601String(),
     ));
   }

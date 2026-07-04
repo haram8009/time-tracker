@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:time_tracker/core/db/category_store.dart';
 import 'package:time_tracker/core/db/database_helper.dart';
 import 'package:time_tracker/core/db/time_block_store.dart';
+import 'package:time_tracker/core/models/category.dart';
 import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/notifications/notification_port.dart';
@@ -27,9 +28,6 @@ class _FakeStore extends TimeBlockStore {
     storedBlocks.add(b);
     return b;
   }
-
-  @override
-  Future<TimeBlock> mergeOrInsert(TimeBlock block) async => insert(block);
 
   @override
   Future<TimeBlock> replaceRange(TimeBlock block) async => insert(block);
@@ -74,8 +72,17 @@ class _FakePrefs implements PreferencesPort {
 class _FakeCategoryStore extends CategoryStore {
   _FakeCategoryStore(super.db);
 
+  final List<Category> inserted = [];
+
   @override
   Future<void> seedIfNeeded() async {}
+
+  @override
+  Future<Category> insert(Category category) async {
+    final c = category.copyWith(id: inserted.length + 1);
+    inserted.add(c);
+    return c;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,6 +182,44 @@ void main() {
       await vm.saveBlock(_block(date: DateKey.today()));
       await vm.saveBlock(_block(date: DateKey.today()));
       expect(store.insertedBlocks.length, 2);
+    });
+  });
+
+  group('GridScreenViewModel.createCategoryAndSaveBlock', () {
+    late _FakeStore store;
+    late _FakeCategoryStore categoryStore;
+    late ProviderContainer container;
+
+    setUp(() {
+      store = _FakeStore(db);
+      categoryStore = _FakeCategoryStore(db);
+      final port = _FakeNotificationPort();
+      container = ProviderContainer(overrides: [
+        databaseProvider.overrideWithValue(db),
+        timeBlockStoreProvider.overrideWithValue(store),
+        notificationPortProvider.overrideWithValue(port),
+        settingsServiceProvider.overrideWith(
+          (ref) => SettingsService(_FakePrefs(), port),
+        ),
+        categoryStoreProvider.overrideWithValue(categoryStore),
+      ]);
+    });
+
+    tearDown(() => container.dispose());
+
+    test('카테고리 insert 후 그 id로 블록 저장 (순서 보장)', () async {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      await vm.createCategoryAndSaveBlock(
+        name: '운동',
+        colorHex: '#5C6BC0',
+        date: DateKey.today(),
+        startMinute: 480,
+        endMinute: 600,
+      );
+
+      expect(categoryStore.inserted.single.name, '운동');
+      expect(store.insertedBlocks.single.categoryId,
+          categoryStore.inserted.single.id);
     });
   });
 

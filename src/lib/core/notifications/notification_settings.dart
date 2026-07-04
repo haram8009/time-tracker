@@ -3,14 +3,19 @@ class NotificationSettings {
   static const keySleepStart = 'notif_sleep_start';
   static const keySleepEnd = 'notif_sleep_end';
 
+  // Single source for fallback defaults, shared by every prefs read site.
+  static const defaultEnabled = true;
+  static const defaultSleepStart = 1380; // 23:00
+  static const defaultSleepEnd = 420; // 07:00
+
   final bool enabled;
   final int sleepStartMinute; // minutes from midnight, default 23*60
   final int sleepEndMinute;   // minutes from midnight, default 7*60
 
   const NotificationSettings({
-    this.enabled = true,
-    this.sleepStartMinute = 1380,
-    this.sleepEndMinute = 420,
+    this.enabled = defaultEnabled,
+    this.sleepStartMinute = defaultSleepStart,
+    this.sleepEndMinute = defaultSleepEnd,
   });
 
   NotificationSettings copyWith({

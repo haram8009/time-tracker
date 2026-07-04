@@ -34,11 +34,12 @@ void main() async {
   await port.initialize();
 
   final settings = NotificationSettings(
-    enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ?? true,
-    sleepStartMinute:
-        prefsAdapter.getInt(NotificationSettings.keySleepStart) ?? 1380,
-    sleepEndMinute:
-        prefsAdapter.getInt(NotificationSettings.keySleepEnd) ?? 420,
+    enabled: prefsAdapter.getBool(NotificationSettings.keyEnabled) ??
+        NotificationSettings.defaultEnabled,
+    sleepStartMinute: prefsAdapter.getInt(NotificationSettings.keySleepStart) ??
+        NotificationSettings.defaultSleepStart,
+    sleepEndMinute: prefsAdapter.getInt(NotificationSettings.keySleepEnd) ??
+        NotificationSettings.defaultSleepEnd,
   );
   await scheduleWeeklyFallbackNotifications(settings, port);
 
