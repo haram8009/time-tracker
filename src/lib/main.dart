@@ -103,7 +103,7 @@ class TimeTrackerApp extends ConsumerWidget {
     if (ref.watch(cloudSyncEnabledProvider)) {
       // Instantiating the service starts its store watchers (auto-sync of
       // pending local changes, debounced — issue #94).
-      final syncService = ref.watch(syncServiceProvider);
+      final syncService = ref.watch(syncServiceProvider.notifier);
 
       // Full sync on every transition into a signed-in state — first sign-in
       // (pull before promotion so a fresh device adopts existing cloud rows
