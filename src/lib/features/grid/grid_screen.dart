@@ -1,12 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/db/category_store.dart';
-import '../../core/db/time_block_store.dart';
 import '../../core/models/date_key.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
-import '../../core/services/photo_library_service.dart';
 import 'category_bottom_sheet.dart';
 import 'edit_block_bottom_sheet.dart';
 import 'grid_coordinator.dart';
@@ -190,124 +187,112 @@ class _GridPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vm = ref.read(gridScreenViewModelProvider);
-    final blocksAsync = ref.watch(timeBlocksStreamProvider(date));
-    final categoriesAsync = ref.watch(categoriesAllStreamProvider);
+    final dataAsync = ref.watch(gridPageDataProvider(date));
 
-    return blocksAsync.when(
+    return dataAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('오류: $e')),
-      data: (dbBlocks) => categoriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('오류: $e')),
-        data: (categories) {
-          final photosAsync = ref.watch(photosForDateProvider(date.toDateTime()));
-          final cells = GridViewModel.compute(
-            blocks: dbBlocks,
-            categories: categories,
-            photos: photosAsync.valueOrNull ?? const [],
-            selectedIndices: dragState.value.selectedIndices,
-          );
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPressStart: gestureHandler.handleLongPressStart,
-            onLongPressMoveUpdate: gestureHandler.handleLongPressMoveUpdate,
-            onLongPressEnd: gestureHandler.handleLongPressEnd,
-            onLongPressCancel: gestureHandler.handleLongPressCancel,
-            child: Stack(
-              children: [
-                Column(
-                  children: List.generate(24, (rowIndex) {
-                    return SizedBox(
-                      height: kCellHeight,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: kTimeLabelWidth,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: Text(
-                                  '${rowIndex.toString().padLeft(2, '0')}:00',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF8E8E93),
-                                    height: 1,
-                                  ),
+      data: (data) {
+        final dbBlocks = data.blocks;
+        final categories = data.categories;
+        final cells = GridViewModel.compute(
+          blocks: dbBlocks,
+          categories: categories,
+          photos: data.photos,
+          selectedIndices: dragState.value.selectedIndices,
+        );
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPressStart: gestureHandler.handleLongPressStart,
+          onLongPressMoveUpdate: gestureHandler.handleLongPressMoveUpdate,
+          onLongPressEnd: gestureHandler.handleLongPressEnd,
+          onLongPressCancel: gestureHandler.handleLongPressCancel,
+          child: Stack(
+            children: [
+              Column(
+                children: List.generate(24, (rowIndex) {
+                  return SizedBox(
+                    height: kCellHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: kTimeLabelWidth,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Text(
+                                '${rowIndex.toString().padLeft(2, '0')}:00',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF8E8E93),
+                                  height: 1,
                                 ),
                               ),
                             ),
                           ),
-                          ...List.generate(6, (col) {
-                            final cellIndex = rowIndex * 6 + col;
-                            return Expanded(
-                              child: GridCell(
-                                key: ValueKey('${date.toDbString()}-$cellIndex'),
-                                index: cellIndex,
-                                state: cells[cellIndex],
-                                onTap: isDragging
-                                    ? null
-                                    : () {
-                                        final existing = vm.blockAtIndex(
-                                          cellIndex,
-                                          dbBlocks,
+                        ),
+                        ...List.generate(6, (col) {
+                          final cellIndex = rowIndex * 6 + col;
+                          return Expanded(
+                            child: GridCell(
+                              key: ValueKey('${date.toDbString()}-$cellIndex'),
+                              index: cellIndex,
+                              state: cells[cellIndex],
+                              onTap: isDragging
+                                  ? null
+                                  : () {
+                                      final existing = vm.blockAtIndex(
+                                        cellIndex,
+                                        dbBlocks,
+                                      );
+                                      if (existing != null) {
+                                        onClearSelection();
+                                        showEditBlockBottomSheet(
+                                          context,
+                                          ref,
+                                          existing,
+                                          categories,
                                         );
-                                        if (existing != null) {
-                                          onClearSelection();
-                                          showEditBlockBottomSheet(
-                                            context,
-                                            ref,
-                                            existing,
-                                            categories,
-                                          );
-                                        } else {
-                                          onDragStarted(cellIndex);
-                                          onDragEnded();
-                                          final sel = dragState.value.selection;
-                                          if (sel != null) {
-                                            showCategoryBottomSheet(
-                                              context,
-                                              ref,
-                                              date,
-                                              sel.startMinute,
-                                              sel.endMinute,
-                                            ).then(
-                                              (_) => onClearSelection(),
-                                            );
-                                          }
-                                        }
-                                      },
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-                TimeBlockOverlay(
-                  blocks: dbBlocks,
-                  categories: categories,
-                  style: blockStyle,
-                  cellHeight: kCellHeight,
-                  timeLabelWidth: kTimeLabelWidth,
-                ),
-                DragSelectionOverlay(
-                  selectedIndices: dragState.value.selectedIndices,
-                  cellHeight: kCellHeight,
-                  timeLabelWidth: kTimeLabelWidth,
-                ),
-                PhotoThumbnailOverlay(
-                  cells: cells,
-                  cellHeight: kCellHeight,
-                  timeLabelWidth: kTimeLabelWidth,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                                      } else {
+                                        // 단일 셀 선택 완료 — 드래그 선택과
+                                        // 동일하게 coordinator의
+                                        // onSelectionComplete가 카테고리
+                                        // 시트를 연다 (#100 단일 경로).
+                                        onDragStarted(cellIndex);
+                                        onDragEnded();
+                                      }
+                                    },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+              TimeBlockOverlay(
+                blocks: dbBlocks,
+                categories: categories,
+                style: blockStyle,
+                cellHeight: kCellHeight,
+                timeLabelWidth: kTimeLabelWidth,
+              ),
+              DragSelectionOverlay(
+                selectedIndices: dragState.value.selectedIndices,
+                cellHeight: kCellHeight,
+                timeLabelWidth: kTimeLabelWidth,
+              ),
+              PhotoThumbnailOverlay(
+                cells: cells,
+                cellHeight: kCellHeight,
+                timeLabelWidth: kTimeLabelWidth,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -333,7 +318,10 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return ColoredBox(
       color: backgroundColor,
       child: WeekStrip(
@@ -345,5 +333,6 @@ class _WeekStripDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_WeekStripDelegate old) =>
-      selectedDate != old.selectedDate || backgroundColor != old.backgroundColor;
+      selectedDate != old.selectedDate ||
+      backgroundColor != old.backgroundColor;
 }
