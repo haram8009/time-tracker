@@ -109,6 +109,7 @@ class _Device {
   late final CategoryStore categories;
   late final TimeBlockStore blocks;
   late final SyncService sync;
+  late final SyncService freshSync;
   int settingsReloads = 0;
 
   static int _uuidCounter = 0;
@@ -130,9 +131,14 @@ class _Device {
     return d;
   }
 
-  void connect(_FakeCloud cloud) {
+  void connect(_FakeCloud cloud) => sync = _buildSync(cloud);
+
+  /// Second service over the same db/prefs — simulates an app relaunch.
+  void connectFresh(_FakeCloud cloud) => freshSync = _buildSync(cloud);
+
+  SyncService _buildSync(_FakeCloud cloud) {
     final local = SyncLocalStore(db);
-    sync = SyncService(
+    return SyncService(
       pull: CloudPullService(local: local, cloud: cloud, prefs: prefs),
       promote: CloudPromotionService(
         local: local,
@@ -414,6 +420,62 @@ void main() {
     expect((await a.db.query('categories')).single['syncStatus'],
         SyncColumns.synced);
     a.sync.dispose();
+  });
+
+  test('status transitions: syncing → idle with persisted lastSyncedAt on '
+      'success', () async {
+    expect(a.sync.state.phase, SyncPhase.idle);
+    expect(a.sync.state.lastSyncedAt, isNull);
+
+    final phases = <SyncPhase>[];
+    a.sync.addListener((s) => phases.add(s.phase), fireImmediately: false);
+
+    await a.categories.insert(const Category(name: '업무', colorHex: '#EF5350'));
+    await a.sync.sync(owner);
+
+    expect(phases, [SyncPhase.syncing, SyncPhase.idle]);
+    expect(a.sync.state.lastSyncedAt, isNotNull);
+    expect(a.sync.state.error, isNull);
+    expect(a.prefs.getInt(SyncService.lastSyncMillisKey),
+        a.sync.state.lastSyncedAt!.millisecondsSinceEpoch);
+  });
+
+  test('status transitions: failure → error state, lastSyncedAt kept, local '
+      'edits unaffected', () async {
+    final cat = await a.categories
+        .insert(const Category(name: '업무', colorHex: '#EF5350'));
+    await a.sync.sync(owner);
+    final lastSuccess = a.sync.state.lastSyncedAt;
+
+    cloud.failWrites = true;
+    await a.blocks.insert(_block(cat.id!));
+    await a.sync.sync(owner);
+
+    expect(a.sync.state.phase, SyncPhase.error);
+    expect(a.sync.state.error, isNotNull);
+    expect(a.sync.state.lastSyncedAt, lastSuccess);
+
+    // Failed sync never blocks local tracking.
+    await a.blocks.insert(_block(cat.id!, start: 60, end: 120));
+    expect(
+        (await a.blocks.fetchByDate(const DateKey(2026, 7, 1))).length, 2);
+
+    // Recovery: next successful sync clears the error.
+    cloud.failWrites = false;
+    await a.sync.sync(owner);
+    expect(a.sync.state.phase, SyncPhase.idle);
+    expect(a.sync.state.error, isNull);
+    expect(a.sync.state.lastSyncedAt!.isAfter(lastSuccess!), isTrue);
+  });
+
+  test('lastSyncedAt survives a restart via prefs', () async {
+    await a.categories.insert(const Category(name: '업무', colorHex: '#EF5350'));
+    await a.sync.sync(owner);
+    final lastSuccess = a.sync.state.lastSyncedAt;
+
+    // Same prefs, fresh service — simulates app relaunch.
+    a.connectFresh(cloud);
+    expect(a.freshSync.state.lastSyncedAt, lastSuccess);
   });
 
   test('auto-sync stays quiet when signed out or nothing pending', () async {

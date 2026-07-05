@@ -9,6 +9,7 @@ import '../../core/services/settings_service.dart';
 import '../analytics/analytics_view_model.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/theme/app_theme.dart';
+import 'sync_status_section.dart';
 
 const _kColorOptions = [
   '#EF5350',
@@ -80,6 +81,7 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           const _SectionHeader('계정'),
           const _AccountSection(),
+          const SyncStatusSection(),
           const Divider(indent: 16, endIndent: 16),
           SwitchListTile(
             title: const Text('스마트 알림'),
