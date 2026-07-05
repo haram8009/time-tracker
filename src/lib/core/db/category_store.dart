@@ -68,7 +68,7 @@ class CategoryStore {
     await _ready;
     final rows = await _db.query(
       'categories',
-      where: 'isHidden = ?',
+      where: 'isHidden = ? AND deletedAt IS NULL',
       whereArgs: [0],
       orderBy: 'id ASC',
     );
@@ -77,7 +77,11 @@ class CategoryStore {
 
   Future<List<Category>> fetchAllIncludingRetired() async {
     await _ready;
-    final rows = await _db.query('categories', orderBy: 'id ASC');
+    final rows = await _db.query(
+      'categories',
+      where: 'deletedAt IS NULL',
+      orderBy: 'id ASC',
+    );
     return rows.map(Category.fromMap).toList();
   }
 
@@ -131,13 +135,27 @@ class CategoryStore {
     await _notify();
   }
 
-  /// Hard-deletes a category and all its TimeBlocks in a single transaction.
+  /// Deletes a category and all its TimeBlocks in a single transaction. Rows
+  /// the cloud already knows (remoteId set) become pending tombstones so the
+  /// delete propagates on the next sync; never-synced rows are removed
+  /// outright — no remote counterpart could resurrect them.
   Future<void> deleteWithRecords(int categoryId) async {
+    final tombstone = stampPending({
+      SyncColumns.deletedAt: DateTime.now().toUtc().toIso8601String(),
+    });
     await _db.transaction((txn) async {
+      await txn.update('time_blocks', tombstone,
+          where: 'categoryId = ? AND remoteId IS NOT NULL',
+          whereArgs: [categoryId]);
       await txn.delete('time_blocks',
-          where: 'categoryId = ?', whereArgs: [categoryId]);
-      await txn.delete('categories',
-          where: 'id = ?', whereArgs: [categoryId]);
+          where: 'categoryId = ? AND remoteId IS NULL',
+          whereArgs: [categoryId]);
+      final tombstoned = await txn.update('categories', tombstone,
+          where: 'id = ? AND remoteId IS NOT NULL', whereArgs: [categoryId]);
+      if (tombstoned == 0) {
+        await txn.delete('categories',
+            where: 'id = ?', whereArgs: [categoryId]);
+      }
     });
     await _notify();
   }
@@ -147,7 +165,7 @@ class CategoryStore {
     await _db.update(
       'categories',
       stampPending({'isHidden': 0}),
-      where: 'isPreset = ?',
+      where: 'isPreset = ? AND deletedAt IS NULL',
       whereArgs: [1],
     );
     await _notify();

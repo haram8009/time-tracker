@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/sync_local_store.dart';
+import '../db/sync_metadata.dart';
 import '../notifications/notification_settings.dart';
 import '../services/preferences_port.dart';
 import 'cloud_sync_port.dart';
@@ -87,7 +88,17 @@ class CloudPromotionService {
     }
   }
 
+  /// Pushes settings only when a local edit is pending, or when settings have
+  /// never synced at all (no [SettingsSyncKeys] stamp — first promotion).
+  /// A clean stamp means the cloud already has this state; pushing anyway
+  /// would clobber a newer remote edit with a fresh timestamp.
   Future<void> _promoteSettings(String ownerId) async {
+    final stampMillis = _prefs.getInt(SettingsSyncKeys.updatedAtMillis);
+    final dirty = _prefs.getBool(SettingsSyncKeys.dirty) ?? false;
+    if (stampMillis != null && !dirty) return;
+
+    final updatedAtMillis =
+        stampMillis ?? DateTime.now().toUtc().millisecondsSinceEpoch;
     await _cloud.upsertSettings(RemoteSettings(
       ownerId: ownerId,
       notificationEnabled: _prefs.getBool(NotificationSettings.keyEnabled) ??
@@ -96,8 +107,11 @@ class CloudPromotionService {
           NotificationSettings.defaultSleepStart,
       sleepEndMinute: _prefs.getInt(NotificationSettings.keySleepEnd) ??
           NotificationSettings.defaultSleepEnd,
-      updatedAt: DateTime.now().toUtc().toIso8601String(),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(updatedAtMillis, isUtc: true)
+          .toIso8601String(),
     ));
+    await _prefs.setInt(SettingsSyncKeys.updatedAtMillis, updatedAtMillis);
+    await _prefs.setBool(SettingsSyncKeys.dirty, false);
   }
 
   /// Uses the row's stamped timestamp, falling back to now for rows that

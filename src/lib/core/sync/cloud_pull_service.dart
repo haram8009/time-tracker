@@ -9,19 +9,23 @@ import 'cloud_promotion_service.dart';
 import 'cloud_sync_port.dart';
 import 'remote_records.dart';
 
-/// Pulls the signed-in user's cloud rows into local SQLite (issue #93) so a
-/// second device rebuilds grid/analytics/categories/settings from the cloud.
+/// Pulls the signed-in user's cloud rows into local SQLite (issues #93/#94).
 /// Categories come first so blocks can resolve their local category id
 /// (remote uuid → local int — the mirror of promotion's map).
 ///
-/// Rules until incremental sync / LWW lands (#94):
+/// Conflict rules (last-write-wins, #94):
+/// - A remote row strictly newer than its local counterpart overwrites it —
+///   even a pending local edit ([isRemoteNewer]; ties favor local, which
+///   promotion pushes later).
+/// - Tombstones are ordinary rows under LWW: a newer remote tombstone lands
+///   locally (deletedAt set, hidden from reads), and a newer remote live row
+///   resurrects a locally tombstoned one. A remote tombstone with no local
+///   counterpart is skipped — nothing to delete.
 /// - Pulled rows are written synced with the remote updatedAt, bypassing
 ///   [stampPending], so they never echo back to the cloud.
-/// - A local row that is still pending wins over its remote counterpart —
-///   promotion will push it later.
-/// - Tombstoned remote rows (deletedAt set) are skipped, not applied.
 /// - A remote preset category with no local match by uuid adopts the local
 ///   seeded preset of the same name, so fresh installs don't duplicate presets.
+/// - Settings follow the same LWW using the [SettingsSyncKeys] prefs stamp.
 class CloudPullService {
   final SyncLocalStore _local;
   final CloudSyncPort _cloud;
@@ -41,8 +45,10 @@ class CloudPullService {
     await _pullSettings(ownerId);
   }
 
-  /// Returns remote category uuid → local category id for every live remote
-  /// category, so the block pass can rewrite its FK.
+  /// Returns remote category uuid → local category id for every remote
+  /// category that is live locally after the pull, so the block pass can
+  /// rewrite its FK. Tombstoned categories are excluded — their blocks are
+  /// tombstoned remotely too, and those tombstones apply without the map.
   Future<Map<String, int>> _pullCategories(String ownerId) async {
     // Insert in remote sort order (promotion set sort_order = original local
     // id) so fresh local autoincrement ids reproduce the original ordering.
@@ -60,23 +66,28 @@ class CloudPullService {
 
     final localIds = <String, int>{};
     for (final remote in remotes) {
-      if (remote.deletedAt != null) continue;
-
       final current = existing[remote.id];
-      if (current != null &&
-          current[SyncColumns.syncStatus] == SyncColumns.pending) {
-        localIds[remote.id] = current['id'] as int;
+
+      if (current == null) {
+        if (remote.deletedAt != null) continue; // nothing local to delete
+        final adoptLocalId =
+            remote.isPreset ? adoptable.remove(remote.name) : null;
+        localIds[remote.id] = await _local.upsertCategoryFromRemote(
+          remote.id,
+          _categoryValues(remote),
+          adoptLocalId: adoptLocalId,
+        );
         continue;
       }
 
-      final adoptLocalId = current == null && remote.isPreset
-          ? adoptable.remove(remote.name)
-          : null;
-      localIds[remote.id] = await _local.upsertCategoryFromRemote(
-        remote.id,
-        _categoryValues(remote),
-        adoptLocalId: adoptLocalId,
-      );
+      final localId = current['id'] as int;
+      if (isRemoteNewer(
+          current[SyncColumns.updatedAt] as String?, remote.updatedAt)) {
+        await _local.upsertCategoryFromRemote(remote.id, _categoryValues(remote));
+        if (remote.deletedAt == null) localIds[remote.id] = localId;
+      } else if (current[SyncColumns.deletedAt] == null) {
+        localIds[remote.id] = localId;
+      }
     }
     return localIds;
   }
@@ -89,17 +100,24 @@ class CloudPullService {
     final existing = await _local.timeBlocksByRemoteId();
 
     for (final remote in remotes) {
-      if (remote.deletedAt != null) continue;
+      final current = existing[remote.id];
+      if (current != null &&
+          !isRemoteNewer(
+              current[SyncColumns.updatedAt] as String?, remote.updatedAt)) {
+        continue; // local same-or-newer wins; pending rows push later
+      }
+
+      if (remote.deletedAt != null) {
+        if (current == null) continue; // nothing local to delete
+        // Partial update: keep the existing FK — the tombstone only needs the
+        // sync columns, and the category may have no local mapping anymore.
+        await _local.upsertTimeBlockFromRemote(remote.id, _syncValues(remote));
+        continue;
+      }
 
       // Category unknown locally (e.g. tombstoned) — leave for a later run.
       final localCategoryId = categoryLocalIds[remote.categoryId];
       if (localCategoryId == null) continue;
-
-      final current = existing[remote.id];
-      if (current != null &&
-          current[SyncColumns.syncStatus] == SyncColumns.pending) {
-        continue;
-      }
 
       await _local.upsertTimeBlockFromRemote(remote.id, {
         'date': remote.date,
@@ -107,11 +125,7 @@ class CloudPullService {
         'endMinute': remote.endMinute,
         'categoryId': localCategoryId,
         'note': remote.note,
-        SyncColumns.remoteId: remote.id,
-        SyncColumns.ownerId: remote.ownerId,
-        SyncColumns.updatedAt: remote.updatedAt,
-        SyncColumns.deletedAt: remote.deletedAt,
-        SyncColumns.syncStatus: SyncColumns.synced,
+        ..._syncValues(remote),
       });
     }
   }
@@ -120,13 +134,28 @@ class CloudPullService {
     final remote = await _cloud.fetchSettings(ownerId);
     if (remote == null) return;
 
+    final remoteMillis =
+        DateTime.parse(remote.updatedAt).toUtc().millisecondsSinceEpoch;
+    final localMillis = _prefs.getInt(SettingsSyncKeys.updatedAtMillis);
+    if (localMillis != null && localMillis >= remoteMillis) return;
+
     await _prefs.setBool(
         NotificationSettings.keyEnabled, remote.notificationEnabled);
     await _prefs.setInt(
         NotificationSettings.keySleepStart, remote.sleepStartMinute);
     await _prefs.setInt(
         NotificationSettings.keySleepEnd, remote.sleepEndMinute);
+    await _prefs.setInt(SettingsSyncKeys.updatedAtMillis, remoteMillis);
+    await _prefs.setBool(SettingsSyncKeys.dirty, false);
   }
+
+  Map<String, Object?> _syncValues(RemoteTimeBlock remote) => {
+        SyncColumns.remoteId: remote.id,
+        SyncColumns.ownerId: remote.ownerId,
+        SyncColumns.updatedAt: remote.updatedAt,
+        SyncColumns.deletedAt: remote.deletedAt,
+        SyncColumns.syncStatus: SyncColumns.synced,
+      };
 
   Map<String, Object?> _categoryValues(RemoteCategory remote) => {
         'name': remote.name,

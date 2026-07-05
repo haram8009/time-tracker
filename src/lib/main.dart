@@ -8,14 +8,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/auth/auth_controller.dart';
 import 'core/auth/auth_port.dart';
 import 'core/auth/supabase_auth_adapter.dart';
-import 'core/db/category_store.dart';
 import 'core/db/database_helper.dart';
-import 'core/db/time_block_store.dart';
 import 'core/services/settings_service.dart';
 import 'core/sync/cloud_promotion_service.dart';
-import 'core/sync/cloud_pull_service.dart';
 import 'core/sync/cloud_sync_port.dart';
 import 'core/sync/supabase_cloud_sync_adapter.dart';
+import 'core/sync/sync_service.dart';
 import 'core/models/time_block_style.dart';
 import 'core/notifications/notification_port.dart';
 import 'core/services/appearance_service.dart';
@@ -55,8 +53,10 @@ void main() async {
         sharedPrefsAdapterProvider.overrideWithValue(prefsAdapter),
         notificationPortProvider.overrideWithValue(port),
         authPortProvider.overrideWithValue(cloud.authPort),
-        if (cloud.syncPort != null)
+        if (cloud.syncPort != null) ...[
           cloudSyncPortProvider.overrideWithValue(cloud.syncPort!),
+          cloudSyncEnabledProvider.overrideWithValue(true),
+        ],
       ],
       child: const TimeTrackerApp(),
     ),
@@ -95,30 +95,31 @@ Future<_CloudPorts> _initCloud() async {
   );
 }
 
-/// Pull runs before promotion so a fresh device adopts existing cloud rows
-/// (marking them synced) first — otherwise its seeded presets would be pushed
-/// up as duplicates. Fire-and-forget; sync status/error UX lands with #95.
-Future<void> _syncOnSignIn(WidgetRef ref, String ownerId) async {
-  await ref.read(cloudPullServiceProvider).pull(ownerId);
-  await ref.read(cloudPromotionServiceProvider).promote(ownerId);
-  await ref.read(categoryStoreProvider).refreshWatchers();
-  await ref.read(timeBlockStoreProvider).refreshWatchers();
-  await ref.read(settingsServiceProvider.notifier).reload();
-}
-
 class TimeTrackerApp extends ConsumerWidget {
   const TimeTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // On the first transition into a signed-in state, sync with the cloud.
-    // Idempotent, so re-signing in is safe.
-    ref.listen(authControllerProvider, (prev, next) {
-      final signedInNow = prev?.account == null && next.account != null;
-      if (signedInNow) {
-        _syncOnSignIn(ref, next.account!.id);
-      }
-    });
+    if (ref.watch(cloudSyncEnabledProvider)) {
+      // Instantiating the service starts its store watchers (auto-sync of
+      // pending local changes, debounced — issue #94).
+      final syncService = ref.watch(syncServiceProvider);
+
+      // Full sync on every transition into a signed-in state — first sign-in
+      // (pull before promotion so a fresh device adopts existing cloud rows
+      // instead of pushing seeded presets as duplicates) and session restore
+      // on app launch. Idempotent, so re-signing in is safe.
+      ref.listen(authControllerProvider, (prev, next) {
+        final signedInNow = prev?.account == null && next.account != null;
+        if (signedInNow) {
+          syncService.sync(next.account!.id);
+        }
+      });
+
+      // Settings edits don't flow through the SQLite stores the service
+      // watches, so nudge it from the provider side.
+      ref.listen(settingsServiceProvider, (_, next) => syncService.requestSync());
+    }
 
     final themeMode = ref.watch(themeModeServiceProvider);
     return MaterialApp(
