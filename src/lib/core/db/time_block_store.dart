@@ -31,7 +31,7 @@ class TimeBlockStore {
   Future<List<TimeBlock>> fetchByDate(DateKey date) async {
     final rows = await _db.query(
       'time_blocks',
-      where: 'date = ?',
+      where: 'date = ? AND deletedAt IS NULL',
       whereArgs: [date.toDbString()],
       orderBy: 'startMinute ASC',
     );
@@ -40,7 +40,8 @@ class TimeBlockStore {
 
   Future<int> countByCategory(int categoryId) async {
     final result = await _db.rawQuery(
-      'SELECT COUNT(*) as cnt FROM time_blocks WHERE categoryId = ?',
+      'SELECT COUNT(*) as cnt FROM time_blocks '
+      'WHERE categoryId = ? AND deletedAt IS NULL',
       [categoryId],
     );
     return result.first['cnt'] as int;
@@ -49,7 +50,7 @@ class TimeBlockStore {
   Future<List<TimeBlock>> fetchByDateRange(DateKey from, DateKey to) async {
     final rows = await _db.query(
       'time_blocks',
-      where: 'date >= ? AND date <= ?',
+      where: 'date >= ? AND date <= ? AND deletedAt IS NULL',
       whereArgs: [from.toDbString(), to.toDbString()],
       orderBy: 'date ASC, startMinute ASC',
     );
@@ -102,7 +103,7 @@ class TimeBlockStore {
             await txn.update('time_blocks', stampPending(block.toMap()),
                 where: 'id = ?', whereArgs: [block.id]);
           case DeleteOp(:final id):
-            await txn.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
+            await _deleteOrTombstone(txn, id);
         }
       }
     });
@@ -130,9 +131,26 @@ class TimeBlockStore {
       whereArgs: [id],
       limit: 1,
     );
-    await _db.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
+    await _deleteOrTombstone(_db, id);
     if (rows.isNotEmpty) {
       await _notify(DateKey.fromDbString(rows.first['date'] as String));
+    }
+  }
+
+  /// Rows the cloud already knows (remoteId set) become pending tombstones so
+  /// the delete propagates on the next sync; never-synced rows are removed
+  /// outright — no remote counterpart could resurrect them.
+  Future<void> _deleteOrTombstone(DatabaseExecutor db, int id) async {
+    final tombstoned = await db.update(
+      'time_blocks',
+      stampPending({
+        SyncColumns.deletedAt: DateTime.now().toUtc().toIso8601String(),
+      }),
+      where: 'id = ? AND remoteId IS NOT NULL',
+      whereArgs: [id],
+    );
+    if (tombstoned == 0) {
+      await db.delete('time_blocks', where: 'id = ?', whereArgs: [id]);
     }
   }
 

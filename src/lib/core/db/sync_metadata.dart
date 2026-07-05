@@ -29,6 +29,27 @@ class SyncColumns {
   static const synced = 'synced';
 }
 
+/// SharedPreferences keys tracking notification-settings sync state (settings
+/// live in prefs, not SQLite, so they carry their own LWW stamp).
+class SettingsSyncKeys {
+  const SettingsSyncKeys._();
+
+  /// Epoch millis (UTC) of the last local settings edit or applied remote pull.
+  static const updatedAtMillis = 'settings_sync_updatedAtMillis';
+
+  /// True while a local settings edit still needs to be pushed to the cloud.
+  static const dirty = 'settings_sync_dirty';
+}
+
+/// True when [remote] (ISO-8601) is strictly newer than [local]. Timestamps
+/// are parsed, not string-compared: local stamps (`...Z`, microseconds) and
+/// Supabase timestamps (`...+00:00`) differ in format. Ties favor local, so a
+/// pending local edit with the same stamp still pushes.
+bool isRemoteNewer(String? local, String remote) {
+  if (local == null || local.isEmpty) return true;
+  return DateTime.parse(remote).isAfter(DateTime.parse(local));
+}
+
 /// Returns a copy of [values] stamped as a pending local write: bumps
 /// [SyncColumns.updatedAt] to now (UTC) and marks [SyncColumns.syncStatus]
 /// pending. Callers pass the result straight to `insert`/`update`.
