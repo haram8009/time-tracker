@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/category_store.dart';
 import '../../core/db/time_block_store.dart';
-import '../../core/logic/grid_layout_calculator.dart';
 import '../../core/models/date_key.dart';
 import '../../core/models/time_block_style.dart';
 import '../../core/services/appearance_service.dart';
@@ -30,45 +29,39 @@ class GridScreen extends ConsumerStatefulWidget {
 
 class _GridScreenState extends ConsumerState<GridScreen> {
   late final GridCoordinator _coordinator;
+  late final VoidCallback _rebuild;
 
-  static const double _kTimeLabelWidth = 48.0;
-  static const double _kCellHeight = 48.0;
+  static const double _kTimeLabelWidth = kGridTimeLabelWidth;
+  static const double _kCellHeight = kGridCellHeight;
 
   @override
   void initState() {
     super.initState();
 
-    const calculator = GridLayoutCalculator(
-      columnCount: 6,
-      cellHeight: _kCellHeight,
-      timeLabelWidth: _kTimeLabelWidth,
-    );
+    // Date navigation state and page/scroll orchestration live in the
+    // provider-owned coordinator (#98); the widget renders and dispatches.
+    _coordinator = ref.read(gridCoordinatorProvider.notifier);
+    _coordinator.onSelectionComplete = (date, sel) {
+      showCategoryBottomSheet(
+        context,
+        ref,
+        date,
+        sel.startMinute,
+        sel.endMinute,
+      ).then((_) => _coordinator.clearSelection());
+    };
 
-    _coordinator = GridCoordinator(
-      calculator: calculator,
-      onDateChanged: (date) =>
-          ref.read(gridScreenViewModelProvider.notifier).goToDate(date),
-      onSelectionComplete: (sel) {
-        final page = _coordinator.pageController.page?.round() ??
-            DateKey.today().toPage(DateKey.appEpoch);
-        final currentDate = DateKey.fromPage(page, DateKey.appEpoch);
-        showCategoryBottomSheet(
-          context,
-          ref,
-          currentDate,
-          sel.startMinute,
-          sel.endMinute,
-        ).then((_) => _coordinator.clearSelection());
-      },
-    );
-
-    _coordinator.dragState.addListener(() => setState(() {}));
-    _coordinator.isDragging.addListener(() => setState(() {}));
+    _rebuild = () => setState(() {});
+    _coordinator.dragState.addListener(_rebuild);
+    _coordinator.isDragging.addListener(_rebuild);
   }
 
   @override
   void dispose() {
-    _coordinator.dispose();
+    // The coordinator outlives the screen (provider-owned); only detach.
+    _coordinator.dragState.removeListener(_rebuild);
+    _coordinator.isDragging.removeListener(_rebuild);
+    _coordinator.onSelectionComplete = null;
     super.dispose();
   }
 
@@ -82,19 +75,8 @@ class _GridScreenState extends ConsumerState<GridScreen> {
 
     final todayPage = DateKey.today().toPage(DateKey.appEpoch);
 
-    ref.listen<GridScreenState>(gridScreenViewModelProvider, (prev, next) {
-      if (prev?.selectedDate != next.selectedDate) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _coordinator.goToDate(next.selectedDate),
-        );
-      }
-    });
-
-    final vmState = ref.watch(gridScreenViewModelProvider);
-    final vm = ref.read(gridScreenViewModelProvider.notifier);
+    final selectedDate = ref.watch(gridCoordinatorProvider);
     final blockStyle = ref.watch(appearanceServiceProvider);
-
-    final selectedDate = vmState.selectedDate;
     final isGlass = blockStyle == TimeBlockStyle.liquidGlass;
     final weekStripBg = isGlass
         ? Colors.transparent
@@ -117,7 +99,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               label: '${selectedDate.year}년 ${selectedDate.month}월',
               selectedDate: selectedDate,
               onDateSelected: (date) {
-                vm.goToDate(date);
+                _coordinator.goToDate(date);
                 _coordinator.clearSelection();
               },
             ),
@@ -126,7 +108,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               if (DateKey.today() != selectedDate)
                 TodayResetButton(
                   onPressed: () {
-                    vm.goToToday();
+                    _coordinator.goToToday();
                     _coordinator.clearSelection();
                   },
                 ),
@@ -138,7 +120,7 @@ class _GridScreenState extends ConsumerState<GridScreen> {
               selectedDate: selectedDate,
               backgroundColor: weekStripBg,
               onDateSelected: (date) {
-                vm.goToDate(date);
+                _coordinator.goToDate(date);
                 _coordinator.clearSelection();
               },
             ),
@@ -207,7 +189,7 @@ class _GridPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vm = ref.read(gridScreenViewModelProvider.notifier);
+    final vm = ref.read(gridScreenViewModelProvider);
     final blocksAsync = ref.watch(timeBlocksStreamProvider(date));
     final categoriesAsync = ref.watch(categoriesAllStreamProvider);
 

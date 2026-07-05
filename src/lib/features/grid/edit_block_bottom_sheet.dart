@@ -116,7 +116,7 @@ class _EditBlockBottomSheetState extends State<_EditBlockBottomSheet> {
                   return InkWell(
                     onTap: () async {
                       await widget.ref
-                          .read(gridScreenViewModelProvider.notifier)
+                          .read(gridScreenViewModelProvider)
                           .saveBlock(
                             widget.block.copyWith(categoryId: c.id),
                           );

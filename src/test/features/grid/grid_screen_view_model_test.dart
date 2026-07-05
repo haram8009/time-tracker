@@ -158,7 +158,7 @@ void main() {
     tearDown(() => container.dispose());
 
     test('오늘 블록 insert → store에 저장됨', () async {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final vm = container.read(gridScreenViewModelProvider);
       final block = _block(date: DateKey.today());
       await vm.saveBlock(block);
       expect(store.insertedBlocks.length, 1);
@@ -166,19 +166,19 @@ void main() {
     });
 
     test('오늘 블록 insert → scheduleSmartNotification 트리거 (cancelById 호출)', () async {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final vm = container.read(gridScreenViewModelProvider);
       await vm.saveBlock(_block(date: DateKey.today()));
       expect(port.cancelledIds, contains(1));
     });
 
     test('과거 날짜 블록 insert → 알림 reschedule 없음', () async {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final vm = container.read(gridScreenViewModelProvider);
       await vm.saveBlock(_block(date: DateKey(2020, 1, 1)));
       expect(port.cancelledIds, isEmpty);
     });
 
     test('saveBlock 여러 번 → 각 호출마다 insert', () async {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final vm = container.read(gridScreenViewModelProvider);
       await vm.saveBlock(_block(date: DateKey.today()));
       await vm.saveBlock(_block(date: DateKey.today()));
       expect(store.insertedBlocks.length, 2);
@@ -208,7 +208,7 @@ void main() {
     tearDown(() => container.dispose());
 
     test('카테고리 insert 후 그 id로 블록 저장 (순서 보장)', () async {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
+      final vm = container.read(gridScreenViewModelProvider);
       await vm.createCategoryAndSaveBlock(
         name: '운동',
         colorHex: '#5C6BC0',
@@ -223,64 +223,6 @@ void main() {
     });
   });
 
-  group('GridScreenViewModel.goToDate', () {
-    late ProviderContainer container;
-
-    setUp(() {
-      final store = _FakeStore(db);
-      final port = _FakeNotificationPort();
-      container = ProviderContainer(overrides: [
-        databaseProvider.overrideWithValue(db),
-        timeBlockStoreProvider.overrideWithValue(store),
-        notificationPortProvider.overrideWithValue(port),
-        settingsServiceProvider.overrideWith(
-          (ref) => SettingsService(_FakePrefs(), port),
-        ),
-        categoryStoreProvider.overrideWithValue(_FakeCategoryStore(db)),
-      ]);
-    });
-
-    tearDown(() => container.dispose());
-
-    test('오늘 날짜 → selectedDate 업데이트', () {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
-      final today = DateKey.today();
-      vm.goToDate(today);
-      final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate, today);
-    });
-
-    test('과거 날짜 → selectedDate 업데이트', () {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
-      const past = DateKey(2024, 3, 15);
-      vm.goToDate(past);
-      final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate, past);
-    });
-
-    test('미래 날짜 → 오늘로 클램프', () {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
-      vm.goToDate(const DateKey(2024, 3, 15)); // move off today first
-      final future = DateKey.today().add(const Duration(days: 1));
-      vm.goToDate(future);
-      final after = container.read(gridScreenViewModelProvider).selectedDate;
-      expect(after, DateKey.today());
-    });
-
-    test('오늘에서 goToNextDay → 오늘 유지 (미래 진입 불가)', () {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
-      vm.goToToday();
-      vm.goToNextDay();
-      final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate, DateKey.today());
-    });
-
-    test('DateKey 동등성 — selectedDate는 DateKey 값 타입', () {
-      final vm = container.read(gridScreenViewModelProvider.notifier);
-      const target = DateKey(2024, 6, 1);
-      vm.goToDate(target);
-      final state = container.read(gridScreenViewModelProvider);
-      expect(state.selectedDate, const DateKey(2024, 6, 1));
-    });
-  });
+  // 날짜 네비게이션(goToDate/클램프)은 GridCoordinator로 이동(#98) —
+  // grid_coordinator_test.dart 에서 검증한다.
 }
