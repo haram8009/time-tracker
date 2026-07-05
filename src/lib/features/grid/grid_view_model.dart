@@ -12,7 +12,6 @@ import '../../core/services/photo_library_service.dart';
 class GridViewModel {
   static List<CellState> compute({
     required List<TimeBlock> blocks,
-    required List<Category> categories, // kept for API compatibility
     required List<PhotoAsset> photos,
     required Set<int> selectedIndices,
   }) {
