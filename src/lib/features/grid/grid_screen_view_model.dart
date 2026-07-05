@@ -31,16 +31,11 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
         selectedDate: state.selectedDate.add(const Duration(days: -1)),
       );
 
-  void goToNextDay() {
-    final next = state.selectedDate.add(const Duration(days: 1));
-    if (next.isAfter(DateKey.today())) return;
-    state = state.copyWith(selectedDate: next);
-  }
+  void goToNextDay() =>
+      goToDate(state.selectedDate.add(const Duration(days: 1)));
 
-  void goToDate(DateKey date) {
-    if (date.isAfter(DateKey.today())) return;
-    state = state.copyWith(selectedDate: date);
-  }
+  void goToDate(DateKey date) =>
+      state = state.copyWith(selectedDate: date.clampToToday());
 
   void goToToday() =>
       state = state.copyWith(selectedDate: DateKey.today());

@@ -140,6 +140,28 @@ void main() {
       });
     });
 
+    group('clampToToday', () {
+      test('today stays today', () {
+        final today = DateKey.today();
+        expect(today.clampToToday(), today);
+      });
+
+      test('past date is unchanged', () {
+        const past = DateKey(2024, 3, 5);
+        expect(past.clampToToday(), past);
+      });
+
+      test('tomorrow clamps to today (boundary)', () {
+        final tomorrow = DateKey.today().add(const Duration(days: 1));
+        expect(tomorrow.clampToToday(), DateKey.today());
+      });
+
+      test('far future clamps to today', () {
+        const future = DateKey(2100, 1, 1);
+        expect(future.clampToToday(), DateKey.today());
+      });
+    });
+
     group('toDateTime', () {
       test('returns midnight DateTime', () {
         const key = DateKey(2024, 3, 5);

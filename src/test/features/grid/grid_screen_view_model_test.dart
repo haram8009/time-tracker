@@ -258,13 +258,21 @@ void main() {
       expect(state.selectedDate, past);
     });
 
-    test('미래 날짜 → selectedDate 변경 없음', () {
+    test('미래 날짜 → 오늘로 클램프', () {
       final vm = container.read(gridScreenViewModelProvider.notifier);
-      final before = container.read(gridScreenViewModelProvider).selectedDate;
+      vm.goToDate(const DateKey(2024, 3, 15)); // move off today first
       final future = DateKey.today().add(const Duration(days: 1));
       vm.goToDate(future);
       final after = container.read(gridScreenViewModelProvider).selectedDate;
-      expect(after, before);
+      expect(after, DateKey.today());
+    });
+
+    test('오늘에서 goToNextDay → 오늘 유지 (미래 진입 불가)', () {
+      final vm = container.read(gridScreenViewModelProvider.notifier);
+      vm.goToToday();
+      vm.goToNextDay();
+      final state = container.read(gridScreenViewModelProvider);
+      expect(state.selectedDate, DateKey.today());
     });
 
     test('DateKey 동등성 — selectedDate는 DateKey 값 타입', () {

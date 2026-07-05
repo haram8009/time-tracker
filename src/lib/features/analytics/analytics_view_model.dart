@@ -29,12 +29,10 @@ class AnalyticsViewModel extends StateNotifier<AnalyticsState> {
   }
 
   void _load() {
-    final today = DateKey.today();
-    DateKey anchor = today;
+    DateKey anchor = DateKey.today();
     final page = _prefs.getInt(_keyAnchor);
     if (page != null) {
-      final stored = DateKey.fromPage(page, DateKey.appEpoch);
-      anchor = stored.isAfter(today) ? today : stored;
+      anchor = DateKey.fromPage(page, DateKey.appEpoch).clampToToday();
     }
     state = AnalyticsState(
       heatmapThreshold: _prefs.getInt(_keyThreshold) ?? 5,
@@ -48,8 +46,7 @@ class AnalyticsViewModel extends StateNotifier<AnalyticsState> {
   }
 
   Future<void> goToDate(DateKey date) async {
-    final today = DateKey.today();
-    final capped = date.isAfter(today) ? today : date;
+    final capped = date.clampToToday();
     state = state.copyWith(anchorDate: capped);
     await _prefs.setInt(_keyAnchor, capped.toPage(DateKey.appEpoch));
   }
@@ -59,7 +56,6 @@ class AnalyticsViewModel extends StateNotifier<AnalyticsState> {
   /// Returns inclusive (from, to) date range for [period] anchored on [anchor].
   /// End is capped at today (no future data).
   static (DateKey, DateKey) dateRangeFor(AnalyticsPeriod period, DateKey anchor) {
-    final today = DateKey.today();
     final a = anchor.toDateTime();
     switch (period) {
       case AnalyticsPeriod.day:
@@ -67,19 +63,16 @@ class AnalyticsViewModel extends StateNotifier<AnalyticsState> {
       case AnalyticsPeriod.week:
         final mon = a.subtract(Duration(days: a.weekday - 1));
         final sun = mon.add(const Duration(days: 6));
-        return (DateKey.fromDateTime(mon), _minToday(DateKey.fromDateTime(sun), today));
+        return (DateKey.fromDateTime(mon), DateKey.fromDateTime(sun).clampToToday());
       case AnalyticsPeriod.month:
         final first = DateTime(a.year, a.month, 1);
         final last = DateTime(a.year, a.month + 1, 0);
-        return (DateKey.fromDateTime(first), _minToday(DateKey.fromDateTime(last), today));
+        return (DateKey.fromDateTime(first), DateKey.fromDateTime(last).clampToToday());
       case AnalyticsPeriod.heatmap:
         final from = a.subtract(const Duration(days: 13));
         return (DateKey.fromDateTime(from), anchor);
     }
   }
-
-  static DateKey _minToday(DateKey end, DateKey today) =>
-      end.isAfter(today) ? today : end;
 
   static String labelFor(AnalyticsPeriod period, DateKey anchor) {
     final today = DateKey.today();

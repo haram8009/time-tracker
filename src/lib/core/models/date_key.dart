@@ -61,6 +61,13 @@ class DateKey {
     return DateTime(year, month, day);
   }
 
+  /// Domain invariant: date navigation can never land on a future date.
+  /// Returns this date, or today when this date lies in the future.
+  DateKey clampToToday() {
+    final today = DateKey.today();
+    return isAfter(today) ? today : this;
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
