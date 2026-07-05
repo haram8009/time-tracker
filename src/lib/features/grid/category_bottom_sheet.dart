@@ -71,7 +71,7 @@ class _CategoryBottomSheetState extends ConsumerState<_CategoryBottomSheet> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
 
-    await ref.read(gridScreenViewModelProvider.notifier).createCategoryAndSaveBlock(
+    await ref.read(gridScreenViewModelProvider).createCategoryAndSaveBlock(
           name: name,
           colorHex: _pickColor(categories),
           date: widget.date,
@@ -124,7 +124,7 @@ class _CategoryBottomSheetState extends ConsumerState<_CategoryBottomSheet> {
                     hexToColor: hexToColor,
                     onSelect: (category) async {
                       await ref
-                          .read(gridScreenViewModelProvider.notifier)
+                          .read(gridScreenViewModelProvider)
                           .saveBlock(
                             TimeBlock(
                               date: widget.date,

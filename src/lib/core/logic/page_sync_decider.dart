@@ -1,17 +1,9 @@
-/// page↔date 동기화에서 PageView 컨트롤러를 목표 페이지로
-/// 점프시킬지 말지를 판단하는 순수 결정 로직.
+/// page↔date 동기화의 순수 결정 로직. Flutter 위젯/컨트롤러 의존이 전혀 없다.
 ///
-/// Flutter 위젯/컨트롤러 의존이 전혀 없다.
+/// echo 억제는 구조적으로 해결됐다(#98): 스와이프 경로는 이 결정을 아예 묻지
+/// 않는다(컨트롤러가 이미 목표 페이지). 외부 네비게이션(달력/주간탭/오늘)만
+/// [decidePageSync]로 점프 여부를 판단한다.
 library;
-
-/// 페이지 변경 출처.
-enum PageChangeSource {
-  /// 사용자 스와이프發. 컨트롤러가 이미 목표 페이지에 있음.
-  swipe,
-
-  /// 외부(달력/오늘 버튼 등)發. 컨트롤러 점프가 필요할 수 있음.
-  external,
-}
 
 /// 결정 결과.
 sealed class PageSyncDecision {
@@ -48,19 +40,26 @@ class JumpTo extends PageSyncDecision {
   String toString() => 'JumpTo($page)';
 }
 
-/// 점프 여부 결정.
+/// 외부 네비게이션의 점프 여부 결정.
 ///
-/// - [source] `swipe` → 항상 [NoOp] (echo 점프 금지)
-/// - [source] `external` 이고 [currentPage] == [targetPage] → [NoOp]
-/// - [source] `external` 이고 ([currentPage] null 또는 != [targetPage]) → [JumpTo]
-///
-/// [currentPage]는 컨트롤러 미부착 시 null.
+/// - [currentPage] == [targetPage] → [NoOp] (이미 도착)
+/// - [currentPage] null(컨트롤러 미부착) 또는 != [targetPage] → [JumpTo]
 PageSyncDecision decidePageSync({
-  required PageChangeSource source,
   required int? currentPage,
   required int targetPage,
 }) {
-  if (source == PageChangeSource.swipe) return const NoOp();
   if (currentPage == targetPage) return const NoOp();
   return JumpTo(targetPage);
 }
+
+/// 날짜 도착 시 세로 스크롤 목적지.
+enum ScrollTarget {
+  /// 오늘 → 현재 시각 위치로.
+  toNow,
+
+  /// 그 외 날짜 → 맨 위로.
+  toTop,
+}
+
+ScrollTarget decideScrollTarget({required bool isToday}) =>
+    isToday ? ScrollTarget.toNow : ScrollTarget.toTop;

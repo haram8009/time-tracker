@@ -6,39 +6,12 @@ import '../../core/models/time_block.dart';
 import '../../core/services/block_mutation_service.dart';
 import 'grid_view_model.dart';
 
-class GridScreenState {
-  final DateKey selectedDate;
-
-  const GridScreenState({required this.selectedDate});
-
-  GridScreenState copyWith({DateKey? selectedDate}) {
-    return GridScreenState(
-      selectedDate: selectedDate ?? this.selectedDate,
-    );
-  }
-}
-
-class GridScreenViewModel extends StateNotifier<GridScreenState> {
+/// Block lookup/mutation operations for the grid screen. Date navigation
+/// state lives in GridCoordinator (#98) — this holds no state of its own.
+class GridScreenViewModel {
   final Ref _ref;
 
-  GridScreenViewModel(this._ref)
-      : super(GridScreenState(
-          selectedDate: DateKey.today(),
-        ));
-
-  void goToPreviousDay() =>
-      state = state.copyWith(
-        selectedDate: state.selectedDate.add(const Duration(days: -1)),
-      );
-
-  void goToNextDay() =>
-      goToDate(state.selectedDate.add(const Duration(days: 1)));
-
-  void goToDate(DateKey date) =>
-      state = state.copyWith(selectedDate: date.clampToToday());
-
-  void goToToday() =>
-      state = state.copyWith(selectedDate: DateKey.today());
+  GridScreenViewModel(this._ref);
 
   TimeBlock? blockAtIndex(int index, List<TimeBlock> blocks) {
     final cellStart = GridViewModel.indexToMinute(index);
@@ -75,5 +48,4 @@ class GridScreenViewModel extends StateNotifier<GridScreenState> {
 }
 
 final gridScreenViewModelProvider =
-    StateNotifierProvider<GridScreenViewModel, GridScreenState>(
-        (ref) => GridScreenViewModel(ref));
+    Provider<GridScreenViewModel>((ref) => GridScreenViewModel(ref));
