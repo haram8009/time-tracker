@@ -1,15 +1,11 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/features/grid/grid_view_model.dart';
-import 'package:time_tracker/core/models/category.dart';
 import 'package:time_tracker/core/models/date_key.dart';
 import 'package:time_tracker/core/models/time_block.dart';
 import 'package:time_tracker/core/models/photo_asset.dart';
 
 void main() {
-  const cat1 = Category(id: 1, name: 'Work', colorHex: '#FF0000');
-  const cat2 = Category(id: 2, name: 'Rest', colorHex: '#0000FF');
-
   TimeBlock block({
     required int start,
     required int end,
@@ -26,7 +22,6 @@ void main() {
     test('빈 입력 → 144개 전부 빈 CellState', () {
       final cells = GridViewModel.compute(
         blocks: [],
-        categories: [],
         photos: [],
         selectedIndices: {},
       );
@@ -40,7 +35,6 @@ void main() {
       // Color rendering moved to TimeBlockOverlay; CellState.categoryColor is always null
       final cells = GridViewModel.compute(
         blocks: [block(start: 0, end: 10)],
-        categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
@@ -51,7 +45,6 @@ void main() {
     test('블록 경계 — categoryColor는 항상 null (오버레이로 이동)', () {
       final cells = GridViewModel.compute(
         blocks: [block(start: 10, end: 20)],
-        categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
@@ -63,7 +56,6 @@ void main() {
     test('블록 걸침 — categoryColor는 항상 null (오버레이로 이동)', () {
       final cells = GridViewModel.compute(
         blocks: [block(start: 0, end: 30)],
-        categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
@@ -76,7 +68,6 @@ void main() {
           block(start: 0, end: 10, categoryId: 1),
           block(start: 0, end: 10, categoryId: 2),
         ],
-        categories: [cat1, cat2],
         photos: [],
         selectedIndices: {},
       );
@@ -86,7 +77,6 @@ void main() {
     test('카테고리 없는 블록 → 셀 color null', () {
       final cells = GridViewModel.compute(
         blocks: [block(start: 0, end: 10, categoryId: 99)],
-        categories: [cat1],
         photos: [],
         selectedIndices: {},
       );
@@ -97,7 +87,6 @@ void main() {
       final bytes = Uint8List.fromList([1, 2, 3]);
       final cells = GridViewModel.compute(
         blocks: [],
-        categories: [],
         photos: [PhotoAsset(takenMinute: 60, thumbnailBytes: bytes)],
         selectedIndices: {},
       );
@@ -113,7 +102,6 @@ void main() {
       final b3 = Uint8List.fromList([3]);
       final cells = GridViewModel.compute(
         blocks: [],
-        categories: [],
         photos: [
           PhotoAsset(takenMinute: 0, thumbnailBytes: b1),
           PhotoAsset(takenMinute: 0, thumbnailBytes: b2),
@@ -129,7 +117,6 @@ void main() {
     test('selectedIndices → isSelected=true', () {
       final cells = GridViewModel.compute(
         blocks: [],
-        categories: [],
         photos: [],
         selectedIndices: {0, 5, 143},
       );
@@ -147,12 +134,6 @@ void main() {
     });
 
     test('RetiredCategory(isHidden=true) 블록 → categoryColor null (오버레이로 이동)', () {
-      const retiredCat = Category(
-        id: 3,
-        name: '퇴직카테고리',
-        colorHex: '#AABBCC',
-        isHidden: true,
-      );
       final cells = GridViewModel.compute(
         blocks: [
           const TimeBlock(
@@ -162,7 +143,6 @@ void main() {
             categoryId: 3,
           )
         ],
-        categories: [retiredCat],
         photos: [],
         selectedIndices: {},
       );

@@ -197,7 +197,6 @@ class _GridPage extends ConsumerWidget {
         final categories = data.categories;
         final cells = GridViewModel.compute(
           blocks: dbBlocks,
-          categories: categories,
           photos: data.photos,
           selectedIndices: dragState.value.selectedIndices,
         );
