@@ -1,7 +1,7 @@
 # Time Tracker — Claude 작업 지침
 
-## be brief
-use /caveman skill
+## 응답 스타일
+- 응답은 간결하게 (토큰 절약을 위해 caveman 스킬 사용)
 
 ## 이슈 연결 규칙
 
@@ -47,9 +47,9 @@ test: AnalyticsEngine 단위 테스트 추가 (#11)
 - 자동 push 없음. 사용자가 명시적으로 요청 시에만 push.
 
 ## 브랜치 규칙
-- 현재: main 브랜치 직접 커밋
-- 향후 브랜치 필요 시: `issue-<번호>-<짧은설명>` (예: `issue-11-analytics`)
+- 작업 단위마다 `issue-<번호>-<짧은설명>` 브랜치를 생성 (예: `issue-11-analytics`)
+- 완료 후 main에 머지하고 브랜치/워크트리 정리
 
 ## 프로젝트 컨텍스트
-- 상세 컨텍스트: `.claude/handoff.md`
+- 세션 인수인계 문서(handoff.md)는 로컬 전용이며 레포에 포함하지 않음
 - PRD: `PRD.md`
