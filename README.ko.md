@@ -6,7 +6,9 @@
 
 ## 스크린샷
 
-<!-- TODO: 스크린샷/GIF 추가 예정 — 랜딩페이지 준비 중 -->
+| 드래그로 범위 선택 | 카테고리 선택 | 분석 (월간 통계 · 히트맵) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/grid-drag.png" width="240" alt="10분 그리드에서 롱프레스 드래그로 범위 선택"> | <img src="docs/screenshots/category-sheet.png" width="240" alt="카테고리 바텀시트"> | <img src="docs/screenshots/analytics.png" width="240" alt="월간 카테고리 통계"><br><img src="docs/screenshots/heatmap.png" width="240" alt="시간대 히트맵"> |
 
 ## 주요 기능
 
